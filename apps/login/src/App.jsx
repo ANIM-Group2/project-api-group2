@@ -9,34 +9,37 @@ export default function App() {
   const [loading, setLoading]   = useState(false)
 
   const handleLogin = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+  e.preventDefault()
+  setError('')
+  setLoading(true)
 
-    try {
-      const { data } = await axios.post('http://localhost:4000/auth/login', {
-        email,
-        password,
-      })
+  try {
+    const { data } = await axios.post('http://localhost:4000/auth/login', {
+      email,
+      password,
+    })
 
-      // Store token
-      localStorage.setItem('aeronexis_token', data.token)
-      localStorage.setItem('aeronexis_role', data.role)
-      localStorage.setItem('aeronexis_user', JSON.stringify({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role,
-      }))
+    // Store in localStorage
+    localStorage.setItem('aeronexis_token', data.token)
+    localStorage.setItem('aeronexis_role', data.role)
+    localStorage.setItem('aeronexis_user', JSON.stringify({
+      firstName: data.firstName,
+      lastName: data.lastName,
+      role: data.role,
+    }))
 
-      // Redirect to the right app
-      window.location.href = data.redirectTo
+    // Store in cookie so Next.js middleware can read it
+    document.cookie = `aeronexis_token=${data.token}; path=/; max-age=28800; SameSite=Lax`
 
-    } catch (err) {
-      setError(err.response?.data?.error || 'Login failed')
-    } finally {
-      setLoading(false)
-    }
+    // Redirect to the right app
+    window.location.href = data.redirectTo
+
+  } catch (err) {
+    setError(err.response?.data?.error || 'Login failed')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div style={styles.bg}>
