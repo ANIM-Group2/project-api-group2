@@ -8,7 +8,7 @@ export default function App() {
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
-  const handleLogin = async (e) => {
+ const handleLogin = async (e) => {
   e.preventDefault()
   setError('')
   setLoading(true)
@@ -19,7 +19,7 @@ export default function App() {
       password,
     })
 
-    // Store in localStorage
+    // Store in localStorage only (cookies don't work cross-port)
     localStorage.setItem('aeronexis_token', data.token)
     localStorage.setItem('aeronexis_role', data.role)
     localStorage.setItem('aeronexis_user', JSON.stringify({
@@ -28,11 +28,9 @@ export default function App() {
       role: data.role,
     }))
 
-    // Store in cookie so Next.js middleware can read it
-    document.cookie = `aeronexis_token=${data.token}; path=/; max-age=28800; SameSite=Lax`
-
     // Redirect to the right app
-    window.location.href = data.redirectTo
+    // window.location.href = data.redirectTo
+    window.location.href = `${data.redirectTo}?token=${data.token}&role=${data.role}`
 
   } catch (err) {
     setError(err.response?.data?.error || 'Login failed')
