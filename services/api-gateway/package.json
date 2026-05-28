@@ -2,11 +2,11 @@
   "name": "api-gateway",
   "version": "1.0.0",
   "description": "AERONEXIS ERP — API Gateway & Auth Service",
-  "main": "src/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "seed": "node src/seed/seed.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed": "node seed/seed.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
