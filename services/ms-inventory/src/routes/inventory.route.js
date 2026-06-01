@@ -1,20 +1,21 @@
 const express = require('express');
 const router  = express.Router();
 const ctrl    = require('../controllers/inventory.controller');
+const { authorize } = require('../middleware/auth.middleware');
 
-// Stock
-router.get('/',                    ctrl.getStock);           // GET /stock
-router.get('/low-stock',           ctrl.getLowStock);        // GET /stock/low-stock
-router.post('/adjust',             ctrl.adjustStock);        // POST /stock/adjust
-router.get('/log',                 ctrl.getLog);             // GET /stock/log
+// Stock — logistics + admin read; only admin adjusts
+router.get('/',                    authorize('logistics', 'admin'), ctrl.getStock);
+router.get('/low-stock',           authorize('logistics', 'admin'), ctrl.getLowStock);
+router.post('/adjust',             authorize('admin'),               ctrl.adjustStock);
+router.get('/log',                 authorize('logistics', 'admin'), ctrl.getLog);
 
-// Alerts
-router.get('/alerts',              ctrl.getAlerts);          // GET /stock/alerts
-router.patch('/alerts/:id/ack',    ctrl.ackAlert);           // PATCH /stock/alerts/:id/ack
+// Alerts — logistics + admin
+router.get('/alerts',              authorize('logistics', 'admin'), ctrl.getAlerts);
+router.patch('/alerts/:id/ack',    authorize('logistics', 'admin'), ctrl.ackAlert);
 
-// Reservations
-router.get('/reservations',        ctrl.getReservations);    // GET /stock/reservations
-router.post('/reservations',       ctrl.createReservation);  // POST /stock/reservations
-router.delete('/reservations/:id', ctrl.releaseReservation); // DELETE /stock/reservations/:id
+// Reservations — logistics + admin create; admin releases
+router.get('/reservations',        authorize('logistics', 'admin'), ctrl.getReservations);
+router.post('/reservations',       authorize('logistics', 'admin'), ctrl.createReservation);
+router.delete('/reservations/:id', authorize('logistics', 'admin'), ctrl.releaseReservation);
 
 module.exports = router;

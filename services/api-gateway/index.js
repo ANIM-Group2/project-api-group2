@@ -1,65 +1,152 @@
-const express = require('express')
-const cors = require('cors')
-const jwt = require('jsonwebtoken')
-const bcrypt = require('bcrypt')
-const { Pool } = require('pg')
-require('dotenv').config()
+require('dotenv').config();
+const express = require('express');
+const cors    = require('cors');
+const jwt     = require('jsonwebtoken');
+const bcrypt  = require('bcrypt');
+const { Pool } = require('pg');
+const https   = require('http');
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+const app = express();
+app.use(cors());
+app.use(express.json());
 
+// ── PostgreSQL ────────────────────────────────────────────────
 const pool = new Pool({
   host:     process.env.DB_HOST,
   port:     process.env.DB_PORT,
   database: process.env.DB_NAME,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-})
+});
 
-// Test DB connection on startup
 pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('❌ DB connection failed:', err.message)
-  } else {
-    console.log('✅ DB connected at', res.rows[0].now)
-  }
-})
+  if (err) console.error('❌ DB connection failed:', err.message);
+  else     console.log('✅ DB connected at', res.rows[0].now);
+});
 
-// Role → app URL mapping
+// ── Service URLs ──────────────────────────────────────────────
+const SERVICES = {
+  production:   process.env.MS_PRODUCTION_URL   || 'http://localhost:4001',
+  inventory:    process.env.MS_INVENTORY_URL    || 'http://localhost:4002',
+  orders:       process.env.MS_ORDERS_URL       || 'http://localhost:4003',
+  traceability: process.env.MS_TRACEABILITY_URL || 'http://localhost:4004',
+};
+
+// ── Role → allowed service prefixes ──────────────────────────
+const ROLE_ALLOWED = {
+  operator:  ['production', 'traceability'],
+  logistics: ['inventory', 'traceability', 'orders'],
+  sales:     ['orders', 'traceability'],
+  admin:     ['production', 'inventory', 'orders', 'traceability'],
+};
+
+// ── Role → frontend redirect ──────────────────────────────────
 const ROLE_REDIRECT = {
   operator:  'http://localhost:3001',
   logistics: 'http://localhost:3002',
   sales:     'http://localhost:3003',
   admin:     'http://localhost:3004',
+};
+
+// ── JWT helpers ───────────────────────────────────────────────
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return null;
+  }
 }
+
+// ── Resolution middleware — verify JWT + check role access ────
+function resolve(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer '))
+    return res.status(401).json({ error: 'No token provided' });
+
+  const decoded = verifyToken(authHeader.split(' ')[1]);
+  if (!decoded)
+    return res.status(401).json({ error: 'Invalid or expired token' });
+
+  req.user = decoded;
+
+  // Extract service name from path: /api/production/... → 'production'
+  const parts = req.path.split('/').filter(Boolean); // ['api','production','batches']
+  const service = parts[1]; // 'production'
+
+  if (!service || !SERVICES[service])
+    return res.status(404).json({ error: `Unknown service: ${service}` });
+
+  const allowed = ROLE_ALLOWED[decoded.role] || [];
+  if (!allowed.includes(service))
+    return res.status(403).json({
+      error: `Role '${decoded.role}' cannot access /${service}`,
+    });
+
+  req.targetService = service;
+  req.targetUrl     = SERVICES[service];
+  next();
+}
+
+// ── Generic proxy function ────────────────────────────────────
+async function proxyRequest(req, res) {
+  // Strip /api prefix: /api/production/batches → /production/batches
+  const targetPath = req.path.replace(/^\/api/, '');
+  const query      = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const url        = `${req.targetUrl}${targetPath}${query}`;
+
+  try {
+    const fetchRes = await fetch(url, {
+      method:  req.method,
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': req.headers['authorization'],
+        'x-user-id':     String(req.user.userId),
+        'x-user-role':   req.user.role,
+        'x-user-name':   `${req.user.firstName} ${req.user.lastName}`,
+      },
+      body: ['GET', 'HEAD', 'DELETE'].includes(req.method)
+        ? undefined
+        : JSON.stringify(req.body),
+    });
+
+    const contentType = fetchRes.headers.get('content-type') || '';
+    const data = contentType.includes('application/json')
+      ? await fetchRes.json()
+      : await fetchRes.text();
+
+    res.status(fetchRes.status).json(data);
+  } catch (err) {
+    console.error(`❌ Proxy error → ${url}:`, err.message);
+    res.status(502).json({ error: `Service unavailable: ${req.targetService}` });
+  }
+}
+
+// ── Public routes — no auth ───────────────────────────────────
+app.get('/health', (req, res) => res.json({
+  status: 'UP',
+  service: 'api-gateway',
+  services: SERVICES,
+}));
 
 // POST /auth/login
 app.post('/auth/login', async (req, res) => {
-  const { email, password } = req.body
-
-  console.log('🔐 Login attempt:', email)
+  const { email, password } = req.body;
+  console.log('🔐 Login attempt:', email);
 
   try {
     const result = await pool.query(
-      `SELECT u.*, r.role_name 
-       FROM "user" u 
-       JOIN role r ON u.role_id = r.role_id 
+      `SELECT u.*, r.role_name
+       FROM "user" u
+       JOIN role r ON u.role_id = r.role_id
        WHERE u.email = $1 AND u.status = 'active'`,
       [email]
-    )
+    );
 
-    const user = result.rows[0]
-    console.log('👤 User found:', user ? `${user.first_name} ${user.last_name} (${user.role_name})` : 'NOT FOUND')
+    const user = result.rows[0];
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' })
-
-    console.log('🔑 Hash in DB:', user.password_hash)
-
-    const valid = await bcrypt.compare(password, user.password_hash)
-    console.log('✅ Password valid:', valid)
-
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' })
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign(
       {
@@ -70,10 +157,10 @@ app.post('/auth/login', async (req, res) => {
         lastName:  user.last_name,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    )
+      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+    );
 
-    console.log('🎉 Login success, redirecting to:', ROLE_REDIRECT[user.role_name])
+    console.log('🎉 Login success:', user.role_name, '→', ROLE_REDIRECT[user.role_name]);
 
     res.json({
       token,
@@ -81,26 +168,32 @@ app.post('/auth/login', async (req, res) => {
       firstName:  user.first_name,
       lastName:   user.last_name,
       redirectTo: ROLE_REDIRECT[user.role_name],
-    })
+    });
   } catch (err) {
-    console.error('💥 Error:', err)
-    res.status(500).json({ error: 'Server error' })
+    console.error('💥 Login error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
-})
+});
 
-// GET /auth/verify — verify token
+// GET /auth/verify
 app.get('/auth/verify', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1]
-  if (!token) return res.status(401).json({ error: 'No token' })
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token' });
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    res.json({ valid: true, user: decoded })
-  } catch {
-    res.status(401).json({ valid: false, error: 'Invalid token' })
-  }
-})
+  const decoded = verifyToken(token);
+  if (!decoded) return res.status(401).json({ valid: false, error: 'Invalid token' });
 
-app.listen(process.env.PORT, () => {
-  console.log(`🚀 Auth service running on port ${process.env.PORT}`)
-})
+  res.json({ valid: true, user: decoded });
+});
+
+// ── Proxy all /api/* routes ───────────────────────────────────
+app.all('/api/*', resolve, proxyRequest);
+
+// ── Start ─────────────────────────────────────────────────────
+app.listen(process.env.PORT || 4000, () => {
+  console.log(`🚀 API Gateway running on port ${process.env.PORT || 4000}`);
+  console.log('   Proxying to:');
+  Object.entries(SERVICES).forEach(([name, url]) =>
+    console.log(`   /api/${name}/* → ${url}`)
+  );
+});
