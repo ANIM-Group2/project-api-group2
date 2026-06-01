@@ -89,8 +89,10 @@ function resolve(req, res, next) {
 
 // ── Generic proxy function ────────────────────────────────────
 async function proxyRequest(req, res) {
-  // Strip /api prefix: /api/production/batches → /production/batches
-  const targetPath = req.path.replace(/^\/api/, '');
+  // Strip /api/servicename prefix: /api/production/batches → /batches
+  // parts = ['api', 'production', 'batches', ...]
+  const parts2     = req.path.split('/').filter(Boolean); // ['api','production','batches']
+  const targetPath = '/' + parts2.slice(2).join('/');     // '/batches'
   const query      = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   const url        = `${req.targetUrl}${targetPath}${query}`;
 

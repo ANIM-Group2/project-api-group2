@@ -1,7 +1,7 @@
 const svc = require('../services/order.service');
 
 const getOrders = async (req, res) => {
-  try { res.json(await svc.getOrders(req.query)); }
+  try { res.json(await svc.getAllOrders(req.query)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 };
 
@@ -33,7 +33,7 @@ const approveOrder = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     if (!req.body.status) return res.status(400).json({ error: 'status is required' });
-    res.json(await svc.updateOrderStatus(req.params.id, req.body.status, req.body.notes));
+    res.json(await svc.updateOrderStatus(req.params.id, req.body.status));
   } catch (e) {
     const code = e.message.includes('not found') ? 404 : 400;
     res.status(code).json({ error: e.message });
@@ -41,17 +41,17 @@ const updateOrderStatus = async (req, res) => {
 };
 
 const getCustomers = async (req, res) => {
-  try { res.json(await svc.getCustomers()); }
+  try { res.json(await svc.getAllCustomers()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 const getStats = async (req, res) => {
-  try { res.json(await svc.getStats()); }
+  try { res.json(await svc.getSalesStats()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 const getShipments = async (req, res) => {
-  try { res.json(await svc.getShipments(req.query)); }
+  try { res.json(await svc.getAllShipments(req.query)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 };
 

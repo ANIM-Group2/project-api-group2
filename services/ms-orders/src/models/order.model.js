@@ -1,10 +1,10 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database.config');
+const sequelize     = require('../config/database.config');
 
-// ── Customer ──────────────────────────────────────────────────────────────────
+// ── Customer ──────────────────────────────────────────────────
 const Customer = sequelize.define('Customer', {
   customer_id:  { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  company_name: { type: DataTypes.STRING(200), allowNull: false },
+  company_name: { type: DataTypes.STRING(200) },
   contact_name: { type: DataTypes.STRING(200) },
   email:        { type: DataTypes.STRING(255) },
   phone:        { type: DataTypes.STRING(50) },
@@ -12,65 +12,47 @@ const Customer = sequelize.define('Customer', {
   status:       { type: DataTypes.STRING(20), defaultValue: 'active' },
 }, { tableName: 'customer', timestamps: false });
 
-// ── Order ─────────────────────────────────────────────────────────────────────
+// ── CustomerOrder — real table name is customer_order ─────────
 const Order = sequelize.define('Order', {
-  order_id:      { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  order_ref:     { type: DataTypes.STRING(50), unique: true, allowNull: false },
-  customer_id:   { type: DataTypes.INTEGER },
-  status:        { type: DataTypes.STRING(50), defaultValue: 'pending' },
-  delivery_date: { type: DataTypes.DATEONLY },
-  is_urgent:     { type: DataTypes.BOOLEAN, defaultValue: false },
-  total_amount:  { type: DataTypes.DECIMAL(14, 2) },
-  notes:         { type: DataTypes.TEXT },
-  created_by:    { type: DataTypes.INTEGER },
-  approved_by:   { type: DataTypes.INTEGER },
-  approved_at:   { type: DataTypes.DATE },
-  approval_notes:{ type: DataTypes.TEXT },
+  customer_order_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  customer_id:       { type: DataTypes.INTEGER },
+  order_date:        { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  expected_delivery: { type: DataTypes.DATEONLY },
+  status:            { type: DataTypes.STRING(50), defaultValue: 'draft' },
+  total_amount:      { type: DataTypes.DECIMAL(14, 2), defaultValue: 0 },
+  is_urgent:         { type: DataTypes.BOOLEAN, defaultValue: false },
+  validated_by:      { type: DataTypes.INTEGER },
+  created_at:        { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
-  tableName: 'order',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
-  quoteIdentifiers: true,
+  tableName:  'customer_order',
+  timestamps: false,
 });
 
-// ── OrderItem ─────────────────────────────────────────────────────────────────
+// ── OrderLine — real table name is order_line ─────────────────
 const OrderItem = sequelize.define('OrderItem', {
-  item_id:    { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  order_id:   { type: DataTypes.INTEGER },
-  product_id: { type: DataTypes.INTEGER },
-  quantity:   { type: DataTypes.INTEGER, allowNull: false },
-  unit_price: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
-}, { tableName: 'order_item', timestamps: false });
+  order_line_id:     { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  customer_order_id: { type: DataTypes.INTEGER },
+  product_id:        { type: DataTypes.INTEGER },
+  quantity:          { type: DataTypes.INTEGER },
+  unit_price:        { type: DataTypes.DECIMAL(12, 2) },
+}, { tableName: 'order_line', timestamps: false });
 
-// ── Shipment ──────────────────────────────────────────────────────────────────
+// ── Shipment ──────────────────────────────────────────────────
 const Shipment = sequelize.define('Shipment', {
-  shipment_id:         { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  order_id:            { type: DataTypes.INTEGER },
-  origin_site_id:      { type: DataTypes.INTEGER },
-  destination_address: { type: DataTypes.TEXT },
-  carrier:             { type: DataTypes.STRING(100) },
-  tracking_number:     { type: DataTypes.STRING(100) },
-  status:              { type: DataTypes.STRING(50), defaultValue: 'scheduled' },
-  scheduled_date:      { type: DataTypes.DATEONLY },
-  delivered_at:        { type: DataTypes.DATE },
-  notes:               { type: DataTypes.TEXT },
-  created_by:          { type: DataTypes.INTEGER },
-}, {
-  tableName: 'shipment',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
-});
+  shipment_id:       { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  customer_order_id: { type: DataTypes.INTEGER },
+  site_id:           { type: DataTypes.INTEGER },
+  shipment_date:     { type: DataTypes.DATEONLY },
+  shipment_type:     { type: DataTypes.STRING(50) },
+  tracking_number:   { type: DataTypes.STRING(100) },
+  status:            { type: DataTypes.STRING(50), defaultValue: 'planned' },
+}, { tableName: 'shipment', timestamps: false });
 
-// ── Associations ──────────────────────────────────────────────────────────────
-Order.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' });
-Customer.hasMany(Order,   { foreignKey: 'customer_id', as: 'orders' });
-
-Order.hasMany(OrderItem,   { foreignKey: 'order_id', as: 'items' });
-OrderItem.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
-
-Order.hasMany(Shipment,    { foreignKey: 'order_id', as: 'shipments' });
-Shipment.belongsTo(Order,  { foreignKey: 'order_id', as: 'order' });
+// ── Associations ──────────────────────────────────────────────
+Order.belongsTo(Customer, { foreignKey: 'customer_id',       as: 'customer' });
+Customer.hasMany(Order,   { foreignKey: 'customer_id',       as: 'orders' });
+Order.hasMany(OrderItem,  { foreignKey: 'customer_order_id', as: 'items' });
+Order.hasMany(Shipment,   { foreignKey: 'customer_order_id', as: 'shipments' });
+Shipment.belongsTo(Order, { foreignKey: 'customer_order_id', as: 'order' });
 
 module.exports = { Order, OrderItem, Customer, Shipment };

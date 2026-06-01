@@ -1,14 +1,13 @@
-const { Op } = require('sequelize');
 const sequelize = require('../config/database.config');
 const { Order, OrderItem, Customer, Shipment } = require('../models/order.model');
 
-// ── Orders ────────────────────────────────────────────────────────────────────
+// ── Orders ────────────────────────────────────────────────────
 
 async function getAllOrders(filters = {}) {
   const where = {};
-  if (filters.status)      where.status    = filters.status;
+  if (filters.status)      where.status      = filters.status;
   if (filters.customer_id) where.customer_id = filters.customer_id;
-  if (filters.is_urgent)   where.is_urgent = true;
+  if (filters.urgent === 'true') where.is_urgent = true;
 
   return Order.findAll({
     where,
@@ -17,8 +16,8 @@ async function getAllOrders(filters = {}) {
   });
 }
 
-async function getOrderById(order_id) {
-  const order = await Order.findByPk(order_id, {
+async function getOrderById(id) {
+  const order = await Order.findByPk(id, {
     include: [
       { model: Customer,  as: 'customer' },
       { model: OrderItem, as: 'items' },
@@ -29,105 +28,68 @@ async function getOrderById(order_id) {
   return order;
 }
 
-async function createOrder({ customer_id, delivery_date, is_urgent, notes, items, created_by }) {
-  if (!customer_id || !items?.length) throw new Error('customer_id and items are required');
-
-  const t = await sequelize.transaction();
-  try {
-    const count = await Order.count({ transaction: t });
-    const order_ref = `ORD-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
-
-    const total_amount = items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
-
-    const order = await Order.create(
-      { order_ref, customer_id, delivery_date, is_urgent: is_urgent || false, notes, total_amount, status: 'pending', created_by },
-      { transaction: t }
-    );
-
-    await OrderItem.bulkCreate(
-      items.map(i => ({ order_id: order.order_id, product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price })),
-      { transaction: t }
-    );
-
-    await t.commit();
-    return order;
-  } catch (err) {
-    await t.rollback();
-    throw err;
-  }
+async function createOrder({ customer_id, expected_delivery, is_urgent, total_amount, created_by }) {
+  if (!customer_id) throw new Error('customer_id is required');
+  return Order.create({
+    customer_id,
+    expected_delivery,
+    is_urgent:    is_urgent || false,
+    total_amount: total_amount || 0,
+    validated_by: created_by,
+    status:       'draft',
+  });
 }
 
-async function approveOrder(order_id, { notes, approved_by }) {
-  const order = await Order.findByPk(order_id);
+async function approveOrder(id, { notes, approved_by }) {
+  const order = await Order.findByPk(id);
   if (!order) throw new Error('Order not found');
-  if (order.status !== 'pending') throw new Error(`Cannot approve order with status '${order.status}'`);
-
-  await order.update({ status: 'approved', approved_by, approved_at: new Date(), approval_notes: notes });
+  await order.update({ status: 'confirmed', validated_by: approved_by });
   return order;
 }
 
-async function rejectOrder(order_id, { reason, approved_by }) {
-  const order = await Order.findByPk(order_id);
-  if (!order) throw new Error('Order not found');
-  if (order.status !== 'pending') throw new Error(`Cannot reject order with status '${order.status}'`);
-
-  await order.update({ status: 'rejected', approved_by, approved_at: new Date(), approval_notes: reason });
-  return order;
-}
-
-async function updateOrderStatus(order_id, status) {
-  const order = await Order.findByPk(order_id);
+async function updateOrderStatus(id, status) {
+  const order = await Order.findByPk(id);
   if (!order) throw new Error('Order not found');
   await order.update({ status });
   return order;
 }
 
-// ── Customers ─────────────────────────────────────────────────────────────────
+// ── Customers ─────────────────────────────────────────────────
 
 async function getAllCustomers() {
   return Customer.findAll({
     include: [{
-      model: Order,
-      as: 'orders',
-      attributes: ['order_id', 'order_ref', 'total_amount', 'status', 'created_at'],
+      model: Order, as: 'orders',
+      attributes: ['customer_order_id', 'total_amount', 'status', 'created_at'],
     }],
     order: [['company_name', 'ASC']],
   });
 }
 
-async function getCustomerById(customer_id) {
-  const customer = await Customer.findByPk(customer_id, {
-    include: [{ model: Order, as: 'orders', include: [{ model: OrderItem, as: 'items' }] }],
-  });
-  if (!customer) throw new Error('Customer not found');
-  return customer;
-}
-
-// ── Sales stats ───────────────────────────────────────────────────────────────
+// ── Stats ─────────────────────────────────────────────────────
 
 async function getSalesStats() {
   const [revenue, statusCounts, topCustomers] = await Promise.all([
     sequelize.query(`
       SELECT
-        COALESCE(SUM(total_amount) FILTER (WHERE created_at >= date_trunc('year', NOW())), 0)  AS revenue_ytd,
+        COALESCE(SUM(total_amount) FILTER (WHERE created_at >= date_trunc('year',  NOW())), 0) AS revenue_ytd,
         COALESCE(SUM(total_amount) FILTER (WHERE created_at >= date_trunc('month', NOW())), 0) AS revenue_mtd,
-        COUNT(*) FILTER (WHERE status = 'pending')    AS pending_orders,
-        COUNT(*) FILTER (WHERE status = 'approved')   AS approved_orders,
+        COUNT(*) FILTER (WHERE status = 'draft')          AS pending_orders,
+        COUNT(*) FILTER (WHERE status = 'confirmed')      AS active_orders,
         COUNT(*) FILTER (WHERE is_urgent = true AND status NOT IN ('delivered','cancelled')) AS urgent_orders
-      FROM "order"
+      FROM customer_order
     `, { type: sequelize.QueryTypes.SELECT }),
 
     sequelize.query(`
-      SELECT status, COUNT(*) AS count FROM "order" GROUP BY status
+      SELECT status, COUNT(*) AS count FROM customer_order GROUP BY status
     `, { type: sequelize.QueryTypes.SELECT }),
 
     sequelize.query(`
       SELECT c.company_name,
-             COUNT(o.order_id)    AS order_count,
-             SUM(o.total_amount)  AS revenue
+             COUNT(co.customer_order_id) AS order_count,
+             COALESCE(SUM(co.total_amount), 0) AS revenue
       FROM customer c
-      JOIN "order" o ON c.customer_id = o.customer_id
-      WHERE o.created_at >= date_trunc('year', NOW())
+      JOIN customer_order co ON c.customer_id = co.customer_id
       GROUP BY c.customer_id, c.company_name
       ORDER BY revenue DESC
       LIMIT 5
@@ -137,30 +99,41 @@ async function getSalesStats() {
   return {
     ...revenue[0],
     orders_by_status: statusCounts,
-    top_customers: topCustomers,
+    top_customers:    topCustomers,
   };
 }
 
-// ── Shipments ─────────────────────────────────────────────────────────────────
+// ── Shipments ─────────────────────────────────────────────────
 
 async function getAllShipments(filters = {}) {
   const where = {};
-  if (filters.status)   where.status   = filters.status;
-  if (filters.order_id) where.order_id = filters.order_id;
+  if (filters.status) where.status = filters.status;
 
   return Shipment.findAll({
     where,
-    include: [{ model: Order, as: 'order', attributes: ['order_ref', 'customer_id'] }],
-    order: [['scheduled_date', 'ASC']],
+    include: [{
+      model: Order, as: 'order',
+      attributes: ['customer_order_id', 'customer_id'],
+      include: [{ model: Customer, as: 'customer', attributes: ['company_name'] }],
+    }],
+    order: [['created_at', 'DESC']],
   });
 }
 
-async function createShipment({ order_id, origin_site_id, destination_address, carrier, scheduled_date, notes, created_by }) {
-  return Shipment.create({ order_id, origin_site_id, destination_address, carrier, scheduled_date, notes, status: 'scheduled', created_by });
+async function createShipment({ customer_order_id, site_id, shipment_type, tracking_number, shipment_date }) {
+  if (!customer_order_id) throw new Error('customer_order_id is required');
+  return Shipment.create({
+    customer_order_id,
+    site_id: site_id || 1,
+    shipment_type: shipment_type || 'ground',
+    tracking_number,
+    shipment_date:  shipment_date || new Date().toISOString().split('T')[0],
+    status: 'planned',
+  });
 }
 
-async function updateShipmentStatus(shipment_id, status) {
-  const shipment = await Shipment.findByPk(shipment_id);
+async function updateShipmentStatus(id, status) {
+  const shipment = await Shipment.findByPk(id);
   if (!shipment) throw new Error('Shipment not found');
   const update = { status };
   if (status === 'delivered') update.delivered_at = new Date();
@@ -169,7 +142,7 @@ async function updateShipmentStatus(shipment_id, status) {
 }
 
 module.exports = {
-  getAllOrders, getOrderById, createOrder, approveOrder, rejectOrder, updateOrderStatus,
-  getAllCustomers, getCustomerById, getSalesStats,
+  getAllOrders, getOrderById, createOrder, approveOrder, updateOrderStatus,
+  getAllCustomers, getSalesStats,
   getAllShipments, createShipment, updateShipmentStatus,
 };

@@ -32,6 +32,7 @@ const MaterialReservation = sequelize.define('MaterialReservation', {
   is_active:          { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: 'material_reservation', timestamps: false });
 
-RawMaterial.belongsTo(Supplier, { foreignKey: 'supplier_id', as: 'supplier' });
+RawMaterial.belongsTo(Supplier,          { foreignKey: 'supplier_id',  as: 'supplier' });
+MaterialReservation.belongsTo(RawMaterial,{ foreignKey: 'material_id',  as: 'material' });
 
 module.exports = { RawMaterial, Supplier, MaterialReservation };

@@ -47,7 +47,7 @@ async function adjustStock(materialId, delta, reason, referenceDoc, userId) {
     product_id:    materialId,
     product_ref:   mat.reference,
     site_id:       1, // default site
-    movement_type: delta >= 0 ? 'in' : 'out',
+    movement_type: delta >= 0 ? 'entry' : 'exit',
     quantity:      Math.abs(delta),
     previous_qty,
     new_qty,
@@ -96,11 +96,10 @@ async function acknowledgeAlert(alertId) {
   return StockAlert.findByIdAndUpdate(alertId, { status: 'acknowledged' }, { new: true });
 }
 
-// GET all reservations
+// GET all reservations (active + released)
 async function getReservations() {
   return MaterialReservation.findAll({
-    where: { is_active: true },
-    include: [{ model: RawMaterial, foreignKey: 'material_id', as: 'material' }],
+    include: [{ model: RawMaterial, as: 'material', attributes: ['reference', 'name', 'unit'] }],
     order: [['reserved_at', 'DESC']],
   });
 }
