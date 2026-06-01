@@ -47,12 +47,13 @@ const pageTitles: Record<string, string> = {
 export function SalesLayout({ children }: SalesLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle('dark');
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle('dark', next);
   };
 
   const handleLogout = () => {

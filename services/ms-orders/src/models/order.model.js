@@ -8,8 +8,8 @@ const Customer = sequelize.define('Customer', {
   contact_name: { type: DataTypes.STRING(200) },
   email:        { type: DataTypes.STRING(255) },
   phone:        { type: DataTypes.STRING(50) },
+  address:      { type: DataTypes.TEXT },
   country:      { type: DataTypes.STRING(100) },
-  status:       { type: DataTypes.STRING(20), defaultValue: 'active' },
 }, { tableName: 'customer', timestamps: false });
 
 // ── CustomerOrder — real table name is customer_order ─────────

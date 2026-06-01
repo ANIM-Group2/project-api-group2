@@ -42,7 +42,9 @@ const pageTitles: Record<string, string> = {
 
 export function OperatorLayout({ children, openIncidentCount = 1 }: OperatorLayoutProps) {
   const location = useLocation();
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
@@ -54,8 +56,9 @@ export function OperatorLayout({ children, openIncidentCount = 1 }: OperatorLayo
   ];
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle('dark');
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle('dark', next);
   };
 
   const handleLogout = () => {

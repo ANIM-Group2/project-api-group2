@@ -1,172 +1,142 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Mail, Phone, ShoppingCart } from 'lucide-react';
-import {
-  customers,
-  orders,
-  formatCurrency,
-  formatDate,
-  type Customer,
-} from '@/lib/sales-data';
+import { useEffect, useState } from 'react'
+import { Search, Mail, Phone, ShoppingCart, Loader2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { customersApi, type Customer, formatCurrency, formatDate } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
-const typeColors: Record<string, string> = {
-  'Key Account': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  Medium: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-  SME: 'bg-green-500/20 text-green-300 border-green-500/30',
-};
+const statusColors: Record<string, string> = {
+  draft:         'bg-gray-500/20 text-gray-300',
+  confirmed:     'bg-blue-500/20 text-blue-300',
+  in_production: 'bg-purple-500/20 text-purple-300',
+  shipped:       'bg-amber-500/20 text-amber-300',
+  delivered:     'bg-green-500/20 text-green-300',
+  cancelled:     'bg-red-500/20 text-red-300',
+}
 
 export default function Customers() {
-  const [search, setSearch] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customers,  setCustomers]  = useState<Customer[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+  const [search,     setSearch]     = useState('')
+  const [selected,   setSelected]   = useState<Customer | null>(null)
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.country.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    customersApi.getAll()
+      .then(setCustomers)
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
 
-  const getCustomerOrders = (customerId: string) => {
-    return orders.filter((o) => o.customerId === customerId);
-  };
+  const filtered = customers.filter(c =>
+    c.company_name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.country ?? '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+  if (error)   return <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-400">{error}</div>
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search customers..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input placeholder="Search customers..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* Customer Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredCustomers.map((customer) => (
-          <Card
-            key={customer.id}
-            className="cursor-pointer transition-colors hover:border-primary/50 hover:bg-muted/30"
-            onClick={() => setSelectedCustomer(customer)}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{customer.countryFlag}</span>
+        {filtered.map(c => {
+          const totalRevenue = c.orders?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0
+          const orderCount   = c.orders?.length ?? 0
+          return (
+            <Card key={c.customer_id} className="cursor-pointer transition-colors hover:border-primary/50 hover:bg-muted/30"
+              onClick={() => setSelected(c)}>
+              <CardHeader className="pb-3">
+                <div>
+                  <CardTitle className="text-base">{c.company_name}</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">{c.country ?? '—'}</p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {c.email && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
+                    <Mail className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{c.email}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
                   <div>
-                    <CardTitle className="text-base">{customer.name}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{customer.country}</p>
+                    <p className="text-xs text-muted-foreground">Revenue</p>
+                    <p className="text-lg font-semibold text-green-400">{formatCurrency(totalRevenue)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Orders</p>
+                    <p className="text-lg font-semibold">{orderCount}</p>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Badge variant="outline" className={typeColors[customer.type]}>
-                {customer.type}
-              </Badge>
-              <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                <div>
-                  <p className="text-xs text-muted-foreground">Revenue</p>
-                  <p className="text-lg font-semibold text-green-400">
-                    {formatCurrency(customer.totalRevenue)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Orders</p>
-                  <p className="text-lg font-semibold">{customer.orderCount}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
-      {/* Customer Detail Sheet */}
-      <Sheet open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>
+      <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>
         <SheetContent className="w-full sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-3">
-              <span className="text-2xl">{selectedCustomer?.countryFlag}</span>
-              <span>{selectedCustomer?.name}</span>
-            </SheetTitle>
+            <SheetTitle>{selected?.company_name}</SheetTitle>
           </SheetHeader>
-          {selectedCustomer && (
+          {selected && (
             <ScrollArea className="mt-6 h-[calc(100vh-120px)]">
-              <div className="space-y-6 pr-4">
-                {/* Type & Location */}
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className={typeColors[selectedCustomer.type]}>
-                    {selectedCustomer.type}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">{selectedCustomer.country}</span>
+              <div className="space-y-4 pr-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                  <p className="text-sm font-medium">Contact</p>
+                  {selected.contact_name && <p className="text-sm">{selected.contact_name}</p>}
+                  {selected.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4" />{selected.email}
+                    </div>
+                  )}
+                  {selected.phone && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4" />{selected.phone}
+                    </div>
+                  )}
                 </div>
 
-                {/* Contact Info */}
-                {selectedCustomer.contact && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm">Contact Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="font-medium">{selectedCustomer.contact.name}</p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="h-4 w-4" />
-                        <span>{selectedCustomer.contact.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                        <span>{selectedCustomer.contact.phone}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Revenue Summary */}
                 <Card className="bg-green-500/10 border-green-500/30">
                   <CardContent className="py-4">
                     <p className="text-sm text-muted-foreground">Total Revenue</p>
                     <p className="text-2xl font-bold text-green-400">
-                      {formatCurrency(selectedCustomer.totalRevenue)}
+                      {formatCurrency(selected.orders?.reduce((s, o) => s + Number(o.total_amount), 0) ?? 0)}
                     </p>
                   </CardContent>
                 </Card>
 
-                {/* Orders List */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-sm">
                       <ShoppingCart className="h-4 w-4" />
-                      Orders ({selectedCustomer.orderCount})
+                      Orders ({selected.orders?.length ?? 0})
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {getCustomerOrders(selectedCustomer.id).map((order) => (
-                        <div
-                          key={order.id}
-                          className="flex items-center justify-between rounded-lg bg-muted/50 p-3"
-                        >
+                    <div className="space-y-2">
+                      {(selected.orders ?? []).map(o => (
+                        <div key={o.customer_order_id} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                           <div>
-                            <p className="font-mono text-sm font-medium">{order.id}</p>
+                            <p className="font-mono text-sm font-medium">#{o.customer_order_id}</p>
                             <p className="text-xs text-muted-foreground">
-                              {formatDate(order.deliveryDate)} • {order.status}
+                              {formatDate(o.expected_delivery)} •{' '}
+                              <span className={cn('capitalize', statusColors[o.status]?.split(' ')[1])}>{o.status.replace('_', ' ')}</span>
                             </p>
                           </div>
-                          <p className="font-medium">{formatCurrency(order.amount)}</p>
+                          <p className="font-medium">{formatCurrency(Number(o.total_amount))}</p>
                         </div>
                       ))}
+                      {(!selected.orders || selected.orders.length === 0) && (
+                        <p className="text-sm text-muted-foreground">No orders yet</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -176,5 +146,5 @@ export default function Customers() {
         </SheetContent>
       </Sheet>
     </div>
-  );
+  )
 }

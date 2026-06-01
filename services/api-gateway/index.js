@@ -89,10 +89,28 @@ function resolve(req, res, next) {
 
 // ── Generic proxy function ────────────────────────────────────
 async function proxyRequest(req, res) {
-  // Strip /api/servicename prefix: /api/production/batches → /batches
-  // parts = ['api', 'production', 'batches', ...]
-  const parts2     = req.path.split('/').filter(Boolean); // ['api','production','batches']
-  const targetPath = '/' + parts2.slice(2).join('/');     // '/batches'
+  // Strip only /api prefix: /api/production/batches → /production/batches
+  // The service name stays because each microservice mounts routes with it:
+  // ms-production: app.use('/production/orders', ...)
+  // ms-inventory:  app.use('/stock', ...)  ← exception, handled below
+  const withoutApi  = req.path.replace(/^\/api/, '');          // /production/batches
+  const parts2      = withoutApi.split('/').filter(Boolean);   // ['production','batches']
+  const serviceName = parts2[0];                               // 'production'
+
+  // ms-inventory mounts at /stock not /inventory
+  // ms-orders mounts at /orders, /shipments, /customers, /stats (not /orders/...)
+  // ms-production mounts at /production/...
+  // ms-traceability mounts at /traceability/...
+  const STRIP_SERVICE = {
+    inventory:    true,
+    orders:       true,
+    traceability: false,
+    production:   false,
+  }
+
+  const targetPath = STRIP_SERVICE[serviceName]
+    ? '/' + parts2.slice(1).join('/')   // strip service name
+    : withoutApi                         // keep as-is
   const query      = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
   const url        = `${req.targetUrl}${targetPath}${query}`;
 

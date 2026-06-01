@@ -61,8 +61,9 @@ export function LogisticsLayout({ children }: LogisticsLayoutProps) {
   ];
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle('dark');
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle('dark', next);
   };
 
   const handleLogout = () => {

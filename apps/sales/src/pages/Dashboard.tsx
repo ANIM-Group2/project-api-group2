@@ -1,186 +1,121 @@
-import { AlertTriangle, Package, ClipboardList, Truck, Bell } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ShoppingCart, Euro, AlertTriangle, Clock, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  materials,
-  reservations,
-  shipments,
-  getActiveAlerts,
-  type MaterialStatus,
-  type ShipmentStatus,
-} from '@/lib/logistics-data'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ordersApi, statsApi, type CustomerOrder, type SalesStats, formatCurrency, formatDate } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-function getStatusColor(status: MaterialStatus) {
-  switch (status) {
-    case 'OK':
-      return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-    case 'Low':
-      return 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-    case 'Critical':
-      return 'bg-red-500/10 text-red-500 border-red-500/20'
-    default:
-      return ''
-  }
-}
-
-function getShipmentStatusColor(status: ShipmentStatus) {
-  switch (status) {
-    case 'Scheduled':
-      return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-    case 'In transit':
-      return 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-    case 'Delivered':
-      return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-    case 'Delayed':
-      return 'bg-red-500/10 text-red-500 border-red-500/20'
-    default:
-      return ''
-  }
+const statusColors: Record<string, string> = {
+  draft:         'bg-gray-500/20 text-gray-300 border-gray-500/30',
+  confirmed:     'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  in_production: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  shipped:       'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  delivered:     'bg-green-500/20 text-green-300 border-green-500/30',
+  cancelled:     'bg-red-500/20 text-red-300 border-red-500/30',
 }
 
 export default function Dashboard() {
-  const activeAlerts = getActiveAlerts()
-  const activeReservations = reservations.filter((r) => r.status === 'active')
-  const criticalAlerts = activeAlerts.filter(
-    (a) => a.severity === 'critical' || a.severity === 'high'
-  )
+  const [stats,   setStats]   = useState<SalesStats | null>(null)
+  const [orders,  setOrders]  = useState<CustomerOrder[]>([])
+  const [pending, setPending] = useState<CustomerOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState<string | null>(null)
 
-  const stats = [
-    {
-      title: 'Total SKUs',
-      value: materials.length,
-      icon: Package,
-      color: 'text-blue-500',
-    },
-    {
-      title: 'Active Reservations',
-      value: activeReservations.length,
-      icon: ClipboardList,
-      color: 'text-emerald-500',
-    },
-    {
-      title: 'Shipments This Week',
-      value: shipments.length,
-      icon: Truck,
-      color: 'text-amber-500',
-    },
-    {
-      title: 'Active Alerts',
-      value: activeAlerts.length,
-      icon: Bell,
-      color: 'text-red-500',
-      highlight: true,
-    },
+  useEffect(() => {
+    async function load() {
+      try {
+        const [statsData, allOrders] = await Promise.all([
+          statsApi.get(),
+          ordersApi.getAll(),
+        ])
+        setStats(statsData)
+        setOrders(allOrders.slice(0, 5))
+        setPending(allOrders.filter(o => o.status === 'draft').slice(0, 3))
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+  if (error)   return <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-400">{error}</div>
+
+  const kpis = [
+    { title: 'Active Orders',     value: stats?.active_orders ?? '—',             icon: ShoppingCart, color: 'text-blue-400' },
+    { title: 'Revenue MTD',       value: formatCurrency(Number(stats?.revenue_mtd ?? 0)), icon: Euro, color: 'text-green-400' },
+    { title: 'Pending Approvals', value: stats?.pending_orders ?? '—',             icon: AlertTriangle, color: 'text-red-400', highlight: true },
+    { title: 'Urgent Orders',     value: stats?.urgent_orders ?? '—',              icon: Clock, color: 'text-amber-400' },
   ]
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon
+        {kpis.map(k => {
+          const Icon = k.icon
           return (
-            <Card key={stat.title}>
+            <Card key={k.title} className={k.highlight && Number(k.value) > 0 ? 'border-red-500/50' : ''}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <Icon className={cn('size-5', stat.color)} />
+                <CardTitle className="text-sm font-medium text-muted-foreground">{k.title}</CardTitle>
+                <Icon className={cn('h-5 w-5', k.color)} />
               </CardHeader>
               <CardContent>
-                <div
-                  className={cn(
-                    'text-2xl font-bold',
-                    stat.highlight && 'text-red-500'
-                  )}
-                >
-                  {stat.value}
-                </div>
+                <div className={cn('text-2xl font-bold', k.highlight && Number(k.value) > 0 && 'text-red-400')}>{k.value}</div>
               </CardContent>
             </Card>
           )
         })}
       </div>
 
-      {/* Alert Banner */}
-      {criticalAlerts.length > 0 && (
-        <Card className="border-red-500/50 bg-red-500/5">
-          <CardContent className="flex items-start gap-4 py-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-500/10">
-              <AlertTriangle className="size-5 text-red-500" />
-            </div>
-            <div className="space-y-2">
-              {criticalAlerts.map((alert) => (
-                <div key={alert.id}>
-                  <p className="text-sm font-medium text-red-500">
-                    {alert.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {alert.description}
-                  </p>
+      {pending.length > 0 && (
+        <Card className="border-amber-500/50 bg-amber-500/10">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-400" />
+              <div>
+                <h3 className="font-semibold text-amber-300">Orders pending approval</h3>
+                <div className="mt-2 space-y-1">
+                  {pending.map(o => (
+                    <p key={o.customer_order_id} className="text-sm text-muted-foreground">
+                      #{o.customer_order_id} — {o.customer?.company_name ?? 'Customer'} — {formatCurrency(o.total_amount)}
+                    </p>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Stock Overview Table */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Stock Overview</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Recent Orders</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Material Code</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Current</TableHead>
-                  <TableHead className="text-right">Reserved</TableHead>
-                  <TableHead className="text-right">Available</TableHead>
-                  <TableHead className="text-right">Safety</TableHead>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Delivery</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Urgent</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {materials.map((material) => (
-                  <TableRow key={material.id}>
-                    <TableCell className="font-mono text-sm">
-                      {material.code}
-                    </TableCell>
-                    <TableCell>{material.description}</TableCell>
-                    <TableCell className="text-right">
-                      {material.stock.toLocaleString()} {material.unit}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {material.reserved.toLocaleString()} {material.unit}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {(material.stock - material.reserved).toLocaleString()}{' '}
-                      {material.unit}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {material.safetyThreshold.toLocaleString()} {material.unit}
-                    </TableCell>
+                {orders.map(o => (
+                  <TableRow key={o.customer_order_id}>
+                    <TableCell className="font-mono text-sm">#{o.customer_order_id}</TableCell>
+                    <TableCell>{o.customer?.company_name ?? '—'}</TableCell>
+                    <TableCell>{formatDate(o.expected_delivery)}</TableCell>
+                    <TableCell className="text-right font-medium text-green-400">{formatCurrency(o.total_amount)}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={getStatusColor(material.status)}
-                      >
-                        {material.status}
-                      </Badge>
+                      <Badge variant="outline" className={statusColors[o.status] ?? ''}>{o.status.replace('_', ' ')}</Badge>
                     </TableCell>
+                    <TableCell>{o.is_urgent ? <span className="text-red-400 text-xs font-medium">URGENT</span> : '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -188,54 +123,31 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Upcoming Shipments */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Upcoming Shipments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {shipments.slice(0, 5).map((shipment) => (
-                <div
-                  key={shipment.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-medium">
-                        {shipment.id}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          getShipmentStatusColor(shipment.status),
-                          'text-xs'
-                        )}
-                      >
-                        {shipment.status}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {shipment.type}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {shipment.origin} → {shipment.destination}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {shipment.items}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">ETA: {shipment.eta}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {shipment.carrier}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {stats?.top_customers && stats.top_customers.length > 0 && (
+          <Card className="lg:col-span-2">
+            <CardHeader><CardTitle>Top Customers by Revenue (YTD)</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="text-center">Orders</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.top_customers.map((c, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{c.company_name}</TableCell>
+                      <TableCell className="text-center">{c.order_count}</TableCell>
+                      <TableCell className="text-right font-medium text-green-400">{formatCurrency(Number(c.revenue))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
