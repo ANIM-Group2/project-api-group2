@@ -1,113 +1,82 @@
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
-  DollarSign, 
-  ShoppingCart, 
-  Clock, 
-  Gauge, 
-  AlertTriangle, 
-  Activity,
-  AlertCircle
-} from 'lucide-react'
-import { 
-  kpis, 
-  monthlyData, 
-  productionMix, 
-  incidents, 
-  topCustomers 
-} from '@/lib/admin-data'
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend
-} from 'recharts'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DollarSign, ShoppingCart, Clock, AlertTriangle, Activity, Layers, Loader2, AlertCircle } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { productionApi, ordersApi, inventoryApi, type ProductionKPIs, type SalesStats, type Incident, type RawMaterial, formatCurrency } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
-const kpiCards = [
-  { 
-    title: 'Revenue YTD', 
-    value: `€${(kpis.revenueYTD / 1000000).toFixed(2)}M`, 
-    icon: DollarSign,
-    color: 'text-primary'
-  },
-  { 
-    title: 'Active Orders', 
-    value: kpis.activeOrders.toString(), 
-    icon: ShoppingCart,
-    color: 'text-primary'
-  },
-  { 
-    title: 'On-Time Delivery', 
-    value: `${kpis.otd}%`, 
-    icon: Clock,
-    color: 'text-warning',
-    status: 'warning'
-  },
-  { 
-    title: 'Yield', 
-    value: `${kpis.yield}%`, 
-    icon: Gauge,
-    color: 'text-success',
-    status: 'success'
-  },
-  { 
-    title: 'Critical Incidents', 
-    value: kpis.criticalIncidents.toString(), 
-    icon: AlertTriangle,
-    color: 'text-destructive',
-    status: 'danger'
-  },
-  { 
-    title: 'Capacity', 
-    value: `${kpis.capacity}%`, 
-    icon: Activity,
-    color: 'text-primary'
-  },
-]
-
-const criticalIncidents = incidents.filter(i => i.severity === 'critical' && i.status !== 'resolved')
+const statusColors: Record<string, string> = {
+  open:          'bg-red-500/20 text-red-400 border-red-500/30',
+  investigating: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  resolved:      'bg-green-500/20 text-green-400 border-green-500/30',
+  closed:        'bg-gray-500/20 text-gray-400 border-gray-500/30',
+}
 
 export default function Overview() {
+  const [prodKPIs,   setProdKPIs]   = useState<ProductionKPIs | null>(null)
+  const [salesStats, setSalesStats] = useState<SalesStats | null>(null)
+  const [incidents,  setIncidents]  = useState<Incident[]>([])
+  const [lowStock,   setLowStock]   = useState<RawMaterial[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [kpis, stats, inc, stock] = await Promise.all([
+          productionApi.getKPIs(),
+          ordersApi.getStats(),
+          productionApi.getIncidents(),
+          inventoryApi.getLowStock(),
+        ])
+        setProdKPIs(kpis)
+        setSalesStats(stats)
+        setIncidents(inc)
+        setLowStock(stock)
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+  if (error)   return <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-400">{error}</div>
+
+  const criticalOpen = incidents.filter(i => i.severity === 'critical' && i.status !== 'resolved' && i.status !== 'closed')
+  const ordersByStatus = salesStats?.orders_by_status ?? []
+
+  const kpiCards = [
+    { title: 'Revenue YTD',       value: formatCurrency(Number(salesStats?.revenue_ytd ?? 0)), icon: DollarSign,    color: 'text-green-400' },
+    { title: 'Active Orders',     value: salesStats?.active_orders ?? '—',                      icon: ShoppingCart,  color: 'text-blue-400' },
+    { title: 'Production Orders', value: prodKPIs?.active_orders ?? '—',                        icon: Layers,        color: 'text-purple-400' },
+    { title: 'Critical Orders',   value: prodKPIs?.critical_orders ?? '—',                      icon: Clock,         color: 'text-amber-400' },
+    { title: 'Open Incidents',    value: incidents.filter(i => i.status === 'open').length,     icon: AlertTriangle, color: 'text-red-400', highlight: true },
+    { title: 'Low Stock Items',   value: lowStock.length,                                        icon: Activity,      color: 'text-orange-400', highlight: lowStock.length > 0 },
+  ]
+
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {kpiCards.map((kpi) => {
-          const Icon = kpi.icon
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {kpiCards.map(k => {
+          const Icon = k.icon
           return (
-            <Card key={kpi.title} className="bg-card border-border">
+            <Card key={k.title} className={k.highlight && Number(k.value) > 0 ? 'border-red-500/50' : ''}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">{kpi.title}</p>
-                    <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
+                    <p className="text-xs text-muted-foreground">{k.title}</p>
+                    <p className={cn('text-2xl font-bold', k.highlight && Number(k.value) > 0 ? 'text-red-400' : k.color)}>{k.value}</p>
                   </div>
-                  <div className={`p-2 rounded-lg ${
-                    kpi.status === 'danger' ? 'bg-destructive/10' :
-                    kpi.status === 'warning' ? 'bg-warning/10' :
-                    kpi.status === 'success' ? 'bg-success/10' :
-                    'bg-primary/10'
-                  }`}>
-                    <Icon className={`w-5 h-5 ${kpi.color}`} />
+                  <div className={cn('p-2 rounded-lg', k.highlight && Number(k.value) > 0 ? 'bg-red-500/10' : 'bg-primary/10')}>
+                    <Icon className={cn('w-5 h-5', k.highlight && Number(k.value) > 0 ? 'text-red-400' : k.color)} />
                   </div>
                 </div>
               </CardContent>
@@ -117,182 +86,113 @@ export default function Overview() {
       </div>
 
       {/* Critical Alert Banner */}
-      {criticalIncidents.length > 0 && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-          <p className="text-sm text-destructive">
-            <span className="font-semibold">{criticalIncidents.length} critical incidents require immediate attention</span>
-            {' — '}
-            {criticalIncidents.map(i => i.id).join(' and ')}
+      {criticalOpen.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+          <p className="text-sm text-red-400">
+            <span className="font-semibold">{criticalOpen.length} critical incident{criticalOpen.length > 1 ? 's' : ''} require immediate attention</span>
+            {' — '}{criticalOpen.map(i => i.title).join(' • ')}
           </p>
         </div>
       )}
 
-      {/* Revenue Chart */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-foreground">Revenue vs Target</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyData}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="month" stroke="#888" />
-                <YAxis stroke="#888" tickFormatter={(value) => `€${(value/1000000).toFixed(1)}M`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  formatter={(value: number) => [`€${(value/1000000).toFixed(2)}M`, '']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#3b82f6" 
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
-                  name="Actual"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="target" 
-                  stroke="#10b981" 
-                  strokeDasharray="5 5" 
-                  dot={false}
-                  name="Target"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Production Mix */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">Production Mix</CardTitle>
-          </CardHeader>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Orders by Status Pie */}
+        <Card>
+          <CardHeader><CardTitle>Customer Orders by Status</CardTitle></CardHeader>
           <CardContent>
             <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={productionMix}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, value }) => `${name} ${value}%`}
-                  >
-                    {productionMix.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              {ordersByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={ordersByStatus.map((s, i) => ({ name: s.status.replace('_', ' '), value: Number(s.count), color: COLORS[i % COLORS.length] }))}
+                      cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} dataKey="value">
+                      {ordersByStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : <p className="flex h-full items-center justify-center text-muted-foreground">No data</p>}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* OTD Trend */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">On-Time Delivery Trend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="month" stroke="#888" />
-                  <YAxis stroke="#888" domain={[85, 100]} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                    formatter={(value: number) => [`${value}%`, 'OTD']}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="otd" 
-                    stroke="#f59e0b" 
-                    strokeWidth={2}
-                    dot={{ fill: '#f59e0b' }}
-                  />
-                  <Legend />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tables Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Critical Incidents */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">Recent Critical Incidents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead className="text-muted-foreground">ID</TableHead>
-                  <TableHead className="text-muted-foreground">Description</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {incidents.filter(i => i.severity === 'critical').map((incident) => (
-                  <TableRow key={incident.id} className="border-border">
-                    <TableCell className="font-mono text-sm">{incident.id}</TableCell>
-                    <TableCell className="text-sm max-w-[200px] truncate">{incident.description}</TableCell>
-                    <TableCell>
-                      <Badge variant={incident.status === 'resolved' ? 'default' : 'destructive'}>
-                        {incident.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
 
         {/* Top Customers */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">Top 5 Customers by Revenue</CardTitle>
-          </CardHeader>
+        <Card>
+          <CardHeader><CardTitle>Top Customers by Revenue</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead className="text-muted-foreground">Customer</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Revenue</TableHead>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead className="text-center">Orders</TableHead>
+                  <TableHead className="text-right">Revenue</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {topCustomers.map((customer) => (
-                  <TableRow key={customer.name} className="border-border">
-                    <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell className="text-right">€{(customer.revenue / 1000000).toFixed(2)}M</TableCell>
+                {(salesStats?.top_customers ?? []).map((c, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="font-medium">{c.company_name}</TableCell>
+                    <TableCell className="text-center">{c.order_count}</TableCell>
+                    <TableCell className="text-right font-medium text-green-400">{formatCurrency(Number(c.revenue))}</TableCell>
                   </TableRow>
                 ))}
+                {(!salesStats?.top_customers?.length) && (
+                  <TableRow><TableCell colSpan={4} className="py-6 text-center text-muted-foreground">No data</TableCell></TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Critical Incidents */}
+      <Card>
+        <CardHeader><CardTitle>Recent Incidents</CardTitle></CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Severity</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {incidents.slice(0, 8).map(inc => (
+                <TableRow key={inc.incident_id}>
+                  <TableCell className="font-mono text-xs">{inc.incident_id}</TableCell>
+                  <TableCell className="max-w-[240px] truncate text-sm" title={inc.title}>{inc.title}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn('capitalize',
+                      inc.severity === 'critical' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                      inc.severity === 'high'     ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                      inc.severity === 'medium'   ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                      'bg-gray-500/20 text-gray-400 border-gray-500/30')}>
+                      {inc.severity}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn('capitalize', statusColors[inc.status] ?? '')}>{inc.status}</Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{inc.batch?.batch_number ?? `#${inc.batch_id}`}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{inc.detected_at?.split('T')[0]}</TableCell>
+                </TableRow>
+              ))}
+              {incidents.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="py-6 text-center text-muted-foreground">No incidents</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   )
 }

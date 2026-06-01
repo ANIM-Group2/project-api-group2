@@ -1,282 +1,186 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
-  ClipboardList, 
-  CheckCircle2, 
-  TrendingUp, 
-  AlertTriangle 
-} from 'lucide-react'
-import { productionOrders, yieldByCategory } from '@/lib/admin-data'
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Cell
-} from 'recharts'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { ClipboardList, CheckCircle2, TrendingUp, AlertTriangle, Loader2 } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
+import { productionApi, type ProductionOrder, type ProductionKPIs } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-muted text-muted-foreground',
-  in_progress: 'bg-primary/20 text-primary',
-  quality_check: 'bg-warning/20 text-warning',
-  completed: 'bg-success/20 text-success',
+  planned:     'bg-gray-500/20 text-gray-400',
+  in_progress: 'bg-blue-500/20 text-blue-400',
+  completed:   'bg-green-500/20 text-green-400',
+  cancelled:   'bg-red-500/20 text-red-400',
 }
-
 const priorityColors: Record<string, string> = {
-  low: 'bg-muted text-muted-foreground',
-  medium: 'bg-primary/20 text-primary',
-  high: 'bg-warning/20 text-warning',
-  critical: 'bg-destructive/20 text-destructive',
-}
-
-const siteColors: Record<string, string> = {
-  Lyon: 'bg-chart-1/20 text-chart-1',
-  Toulouse: 'bg-chart-2/20 text-chart-2',
+  low:      'bg-gray-500/20 text-gray-400',
+  normal:   'bg-blue-500/20 text-blue-400',
+  medium:   'bg-blue-500/20 text-blue-400',
+  high:     'bg-amber-500/20 text-amber-400',
+  urgent:   'bg-orange-500/20 text-orange-400',
+  critical: 'bg-red-500/20 text-red-400',
 }
 
 export default function Production() {
-  const [siteFilter, setSiteFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [orders,     setOrders]     = useState<ProductionOrder[]>([])
+  const [kpis,       setKpis]       = useState<ProductionKPIs | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+  const [siteFilter, setSiteFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
-  const filteredOrders = productionOrders.filter(order => {
-    if (siteFilter !== 'all' && order.site !== siteFilter) return false
-    if (statusFilter !== 'all' && order.status !== statusFilter) return false
-    return true
+  useEffect(() => {
+    async function load() {
+      try {
+        const [o, k] = await Promise.all([productionApi.getOrders(), productionApi.getKPIs()])
+        setOrders(o)
+        setKpis(k)
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+      } finally { setLoading(false) }
+    }
+    load()
+  }, [])
+
+  const filtered = orders.filter(o => {
+    const matchSite   = siteFilter === 'all'   || (o.site?.name ?? '').toLowerCase().includes(siteFilter.toLowerCase())
+    const matchStatus = statusFilter === 'all' || o.status === statusFilter
+    return matchSite && matchStatus
   })
 
-  const activeOrders = productionOrders.filter(o => o.status !== 'completed').length
-  const completedOrders = productionOrders.filter(o => o.status === 'completed' || o.status === 'quality_check').length
-  const avgProgress = Math.round(
-    productionOrders.reduce((acc, o) => acc + (o.completed / o.quantity) * 100, 0) / productionOrders.length
-  )
-  const criticalPriority = productionOrders.filter(o => o.priority === 'critical').length
+  // Build yield-by-product data from real orders
+  const productYield = Object.values(
+    orders.reduce((acc, o) => {
+      const ref = o.product?.reference?.split('-')[1] ?? 'Other'
+      if (!acc[ref]) acc[ref] = { category: ref, completed: 0, total: 0 }
+      acc[ref].total += o.quantity_ordered
+      if (o.status === 'completed') acc[ref].completed += o.quantity_ordered
+      return acc
+    }, {} as Record<string, { category: string; completed: number; total: number }>)
+  ).map(d => ({ category: d.category, yield: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0 }))
 
-  const getProgressColor = (progress: number) => {
-    if (progress < 30) return 'bg-destructive'
-    if (progress < 60) return 'bg-warning'
-    return 'bg-success'
-  }
+  if (loading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+  if (error)   return <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-400">{error}</div>
 
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Orders</p>
-                <p className="text-2xl font-bold text-foreground">{activeOrders}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-primary/10">
-                <ClipboardList className="w-5 h-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Completed / QC</p>
-                <p className="text-2xl font-bold text-success">{completedOrders}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-success/10">
-                <CheckCircle2 className="w-5 h-5 text-success" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Progress</p>
-                <p className="text-2xl font-bold text-foreground">{avgProgress}%</p>
-              </div>
-              <div className="p-2 rounded-lg bg-primary/10">
-                <TrendingUp className="w-5 h-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Critical Priority</p>
-                <p className="text-2xl font-bold text-destructive">{criticalPriority}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <AlertTriangle className="w-5 h-5 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { title: 'Active Orders',   value: kpis?.active_orders ?? '—',    icon: ClipboardList, color: 'text-blue-400',    bg: 'bg-blue-500/10' },
+          { title: 'Completed',       value: kpis?.completed_orders ?? '—', icon: CheckCircle2,  color: 'text-green-400',   bg: 'bg-green-500/10' },
+          { title: 'Total',           value: kpis?.total_orders ?? '—',     icon: TrendingUp,    color: 'text-purple-400',  bg: 'bg-purple-500/10' },
+          { title: 'Critical',        value: kpis?.critical_orders ?? '—',  icon: AlertTriangle, color: 'text-red-400',     bg: 'bg-red-500/10' },
+        ].map(k => {
+          const Icon = k.icon
+          return (
+            <Card key={k.title}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{k.title}</p>
+                    <p className={cn('text-2xl font-bold', k.color)}>{k.value}</p>
+                  </div>
+                  <div className={cn('p-2 rounded-lg', k.bg)}><Icon className={cn('w-5 h-5', k.color)} /></div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Site:</span>
-          <div className="flex gap-1">
-            <Button 
-              variant={siteFilter === 'all' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setSiteFilter('all')}
-            >
-              All
+          {['all', 'Lyon', 'Toulouse'].map(s => (
+            <Button key={s} variant={siteFilter === s ? 'default' : 'outline'} size="sm"
+              onClick={() => setSiteFilter(s)}>
+              {s === 'all' ? 'All' : s}
             </Button>
-            <Button 
-              variant={siteFilter === 'Lyon' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setSiteFilter('Lyon')}
-            >
-              Lyon
-            </Button>
-            <Button 
-              variant={siteFilter === 'Toulouse' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setSiteFilter('Toulouse')}
-            >
-              Toulouse
-            </Button>
-          </div>
+          ))}
         </div>
-
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Status:</span>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="planned">Planned</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="quality_check">Quality Check</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {/* Orders Table */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-foreground">Production Orders</CardTitle>
-        </CardHeader>
+      <Card>
+        <CardHeader><CardTitle>Production Orders ({filtered.length})</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow className="border-border">
-                <TableHead className="text-muted-foreground">Order #</TableHead>
-                <TableHead className="text-muted-foreground">Product</TableHead>
-                <TableHead className="text-muted-foreground">Part #</TableHead>
-                <TableHead className="text-muted-foreground">Site</TableHead>
-                <TableHead className="text-muted-foreground">Operator</TableHead>
-                <TableHead className="text-muted-foreground">Qty</TableHead>
-                <TableHead className="text-muted-foreground">Progress</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Priority</TableHead>
-                <TableHead className="text-muted-foreground">Due</TableHead>
+              <TableRow>
+                <TableHead>Order#</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Ref</TableHead>
+                <TableHead>Site</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Start</TableHead>
+                <TableHead>End</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.map((order) => {
-                const progress = Math.round((order.completed / order.quantity) * 100)
-                return (
-                  <TableRow key={order.id} className="border-border">
-                    <TableCell className="font-mono text-sm">{order.id}</TableCell>
-                    <TableCell className="text-sm max-w-[150px] truncate">{order.product}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{order.partNumber}</TableCell>
-                    <TableCell>
-                      <Badge className={siteColors[order.site]}>{order.site}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{order.operator}</TableCell>
-                    <TableCell className="text-sm">{order.completed}/{order.quantity}</TableCell>
-                    <TableCell className="min-w-[120px]">
-                      <div className="flex items-center gap-2">
-                        <Progress 
-                          value={progress} 
-                          className="h-2 flex-1"
-                          indicatorClassName={getProgressColor(progress)}
-                        />
-                        <span className="text-xs text-muted-foreground w-9">{progress}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statusColors[order.status]}>
-                        {order.status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={priorityColors[order.priority]}>
-                        {order.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{order.dueDate}</TableCell>
-                  </TableRow>
-                )
-              })}
+              {filtered.map(o => (
+                <TableRow key={o.production_order_id}>
+                  <TableCell className="font-mono text-xs">{o.order_number}</TableCell>
+                  <TableCell className="max-w-[160px] truncate text-sm">{o.product?.name ?? '—'}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{o.product?.reference ?? '—'}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{o.site?.name ?? '—'}</TableCell>
+                  <TableCell className="text-sm">{o.quantity_ordered}</TableCell>
+                  <TableCell><Badge className={cn('capitalize', statusColors[o.status] ?? '')}>{o.status.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell><Badge className={cn('capitalize', priorityColors[o.priority] ?? '')}>{o.priority}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{o.planned_start?.split('T')[0] ?? '—'}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{o.planned_end?.split('T')[0] ?? '—'}</TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 && <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">No orders found</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* Yield by Category */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-foreground">Yield by Category</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={yieldByCategory} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis type="number" domain={[80, 100]} stroke="#888" tickFormatter={(v) => `${v}%`} />
-                <YAxis type="category" dataKey="category" stroke="#888" width={100} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}
-                  formatter={(value: number) => [`${value}%`, 'Yield']}
-                />
-                <Bar dataKey="yield" radius={[0, 4, 4, 0]}>
-                  {yieldByCategory.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.yield >= 95 ? '#10b981' : entry.yield >= 90 ? '#3b82f6' : '#f59e0b'} 
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Completion by Product */}
+      {productYield.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Completion Rate by Product Line</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={productYield} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" tickFormatter={v => `${v}%`} />
+                  <YAxis type="category" dataKey="category" stroke="hsl(var(--muted-foreground))" width={60} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                    formatter={(v: number) => [`${v}%`, 'Completion']} />
+                  <Bar dataKey="yield" radius={[0, 4, 4, 0]}>
+                    {productYield.map((e, i) => (
+                      <Cell key={i} fill={e.yield >= 80 ? '#10b981' : e.yield >= 50 ? '#3b82f6' : '#f59e0b'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -131,8 +131,8 @@ export function LogisticsLayout({ children }: LogisticsLayoutProps) {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-64 flex-shrink-0 border-r border-border/50 bg-card lg:block">
+    <div className="flex h-screen bg-background">
+      <aside className="hidden w-64 flex-shrink-0 flex-col border-r border-border/50 bg-card lg:flex">
         <SidebarContent />
       </aside>
 
@@ -187,7 +187,7 @@ export function LogisticsLayout({ children }: LogisticsLayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );
