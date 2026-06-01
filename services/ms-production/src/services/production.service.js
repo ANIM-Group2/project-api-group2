@@ -1,0 +1,66 @@
+const { ProductionOrder, Product, Site, User, Batch } = require('../models/production.model');
+
+async function getAllOrders(filters = {}) {
+  const where = {};
+  if (filters.status)  where.status  = filters.status;
+  if (filters.site_id) where.site_id = filters.site_id;
+  if (filters.priority) where.priority = filters.priority;
+
+  return ProductionOrder.findAll({
+    where,
+    include: [
+      { model: Product, as: 'product', attributes: ['name', 'reference', 'unit_price'] },
+      { model: Site,    as: 'site',    attributes: ['name', 'country'] },
+      { model: User,    as: 'creator', attributes: ['first_name', 'last_name', 'email'] },
+    ],
+    order: [['creation_date', 'DESC']],
+  });
+}
+
+async function getOrderById(id) {
+  const order = await ProductionOrder.findByPk(id, {
+    include: [
+      { model: Product, as: 'product' },
+      { model: Site,    as: 'site' },
+      { model: User,    as: 'creator' },
+      { model: Batch,   as: 'batches' },
+    ],
+  });
+  if (!order) throw new Error('Production order not found');
+  return order;
+}
+
+async function createOrder(data) {
+  const { product_id, site_id, created_by, order_number, planned_start, planned_end, priority, quantity_ordered, customer_order_id } = data;
+  if (!product_id || !site_id || !created_by || !order_number || !quantity_ordered)
+    throw new Error('Missing required fields: product_id, site_id, created_by, order_number, quantity_ordered');
+
+  return ProductionOrder.create({
+    product_id, site_id, created_by, order_number,
+    planned_start, planned_end,
+    priority:         priority || 'normal',
+    quantity_ordered,
+    customer_order_id: customer_order_id || null,
+    status: 'planned',
+  });
+}
+
+async function updateOrderStatus(id, status) {
+  const order = await ProductionOrder.findByPk(id);
+  if (!order) throw new Error('Production order not found');
+  await order.update({ status });
+  return order;
+}
+
+async function getKPIs() {
+  const [active, completed, critical, total] = await Promise.all([
+    ProductionOrder.count({ where: { status: 'in_progress' } }),
+    ProductionOrder.count({ where: { status: 'completed' } }),
+    ProductionOrder.count({ where: { priority: 'critical', status: ['planned', 'in_progress'] } }),
+    ProductionOrder.count(),
+  ]);
+
+  return { active_orders: active, completed_orders: completed, critical_orders: critical, total_orders: total };
+}
+
+module.exports = { getAllOrders, getOrderById, createOrder, updateOrderStatus, getKPIs };
