@@ -1,12 +1,17 @@
+import './bootstrap'   // MUST be first — saves token before store initializes
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
+import { Provider } from 'react-redux'
+import { store } from './store'
+import App from './App'
 import './index.css'
 
 document.documentElement.classList.add('dark')
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
-  </StrictMode>,
+    <Provider store={store}>
+      <App />
+    </Provider>
+  </StrictMode>
 )

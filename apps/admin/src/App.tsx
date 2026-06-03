@@ -5,15 +5,19 @@ import Production from './pages/Production'
 import Incidents from './pages/Incidents'
 import Sites from './pages/Sites'
 import Reports from './pages/Reports'
+import ProfileSettings from './pages/ProfileSettings'
 
-// Check auth synchronously before rendering anything
-const token = localStorage.getItem('aeronexis_token')
-const role  = localStorage.getItem('aeronexis_role')
-if (!token || role !== 'admin') {
-  window.location.href = 'http://localhost:3000'
-}
+const LOGIN_URL = 'http://localhost:3000'
 
 function App() {
+  const token = localStorage.getItem('aeronexis_token')
+  const role  = localStorage.getItem('aeronexis_role')
+
+  if (!token || role !== 'admin') {
+    window.location.href = LOGIN_URL
+    return null
+  }
+
   return (
     <BrowserRouter>
       <Routes>
@@ -24,6 +28,7 @@ function App() {
           <Route path="/incidents"  element={<Incidents />} />
           <Route path="/sites"      element={<Sites />} />
           <Route path="/reports"    element={<Reports />} />
+          <Route path="/profile"    element={<ProfileSettings />} />
         </Route>
       </Routes>
     </BrowserRouter>

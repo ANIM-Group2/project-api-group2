@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3003,
     allowedHosts: [
       'sb-1yh69nuhyhvm.vercel.run' // Allows this specific sandbox host
     ]

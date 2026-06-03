@@ -1,17 +1,17 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import './bootstrap'   // MUST be first — saves token before store initializes
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { Provider } from 'react-redux'
+import { store } from './store'
 import App from './App'
 import './index.css'
 
-// Apply dark mode on load — the CSS uses @custom-variant dark (&:is(.dark *))
-// so .dark must be on an ancestor; html is the top-level ancestor
 document.documentElement.classList.add('dark')
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <Provider store={store}>
       <App />
-    </BrowserRouter>
-  </React.StrictMode>
+    </Provider>
+  </StrictMode>
 )

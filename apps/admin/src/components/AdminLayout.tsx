@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -8,6 +8,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useAppDispatch, useAuth } from '@/store/hooks'
+import { logout } from '@/store/authSlice'
 import {
   Plane, LayoutDashboard, Factory, AlertTriangle, MapPin,
   FileBarChart, Menu, Moon, Sun, ChevronDown, User, Settings, LogOut,
@@ -33,6 +35,9 @@ const pageTitles: Record<string, string> = {
 
 export function AdminLayout() {
   const location = useLocation();
+  const navigate = useNavigate()
+  const dispatch  = useAppDispatch()
+  const { user }  = useAuth()
   const [isDark,      setIsDark]      = useState(() => document.documentElement.classList.contains('dark'));
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [incidentBadge, setIncidentBadge] = useState(0);
@@ -62,14 +67,9 @@ export function AdminLayout() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('aeronexis_token');
-    localStorage.removeItem('aeronexis_role');
-    window.location.href = 'http://localhost:3000';
-  };
+  const handleLogout = () => dispatch(logout());
 
-  const user = (() => { try { return JSON.parse(localStorage.getItem('aeronexis_user') || '{}'); } catch { return {}; } })();
-  const displayName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 'Philippe Laurent';
+  const displayName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 'User';
   const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
 
   const currentTitle = pageTitles[location.pathname] || 'Overview';
@@ -162,8 +162,8 @@ export function AdminLayout() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem><User className="mr-2 h-4 w-4" />Profile</DropdownMenuItem>
-                <DropdownMenuItem><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/profile')}><User className="mr-2 h-4 w-4" />Profile & Settings</DropdownMenuItem>
+                {/* <DropdownMenuItem><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem> */}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
                   <LogOut className="mr-2 h-4 w-4" />Logout
