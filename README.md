@@ -1,75 +1,111 @@
 # AERONEXIS Dynamics — ERP System
 
-> *Precision Beyond Limits*
+> **"Precision Beyond Limits"**
 
-A modular, role-based ERP platform for an aerospace precision manufacturing company. Built as a monorepo with 5 independent React frontends, an Express API gateway, and a PostgreSQL database.
-
----
-
-## Project Context
-
-AERONEXIS Dynamics manufactures high-precision mechanical components for civil aviation and long-range drones. This ERP system was designed to replace a fragmented Excel/email-based workflow with a centralized, traceable, and scalable platform covering production, logistics, sales, and executive management.
+A full-stack industrial ERP built for AERONEXIS Dynamics, an aerospace precision components manufacturer. Designed to replace Excel-based operations with a centralized, traceable, and scalable system across production, inventory, sales, and management.
 
 ---
 
-## Architecture Overview
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [User Roles & Apps](#user-roles--apps)
+- [Getting Started](#getting-started)
+- [Running the Project](#running-the-project)
+- [AI Agent — ARIA](#ai-agent--aria)
+- [API Gateway & RBAC](#api-gateway--rbac)
+- [Database](#database)
+- [Environment Variables](#environment-variables)
+
+---
+
+## Overview
+
+AERONEXIS Dynamics manufactures high-precision mechanical parts for civil aviation and long-range drones. This ERP system covers:
+
+- **Production** — manufacturing orders, batch lifecycle, quality incident reporting
+- **Inventory** — raw material stock, reservations, shipments, stock alerts
+- **Sales** — customer orders, approval workflows, revenue analytics
+- **Management** — executive dashboards, KPI reporting, AI-powered assistant (ARIA)
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      Frontend Apps                       │
-│  Login  │  Admin  │  Operator  │  Logistics  │  Sales   │
-│ :3000   │  :3004  │   :3001    │    :3002    │  :3003   │
-└────────────────────────┬────────────────────────────────┘
-                         │ HTTP / JWT
-                         ▼
-              ┌─────────────────────┐
-              │    API Gateway      │
-              │    Express :4000    │
-              │  Auth · Routing     │
-              └──────────┬──────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │     PostgreSQL      │
-              │   aeronexis_erp     │
-              └─────────────────────┘
+Browser (5 React apps)
+        |
+        | JWT Bearer token
+        v
+API Gateway :4000  ──  JWT verification + RBAC + dynamic proxy
+        |
+        |── /api/production/*    ──>  ms-production   :4001
+        |── /api/inventory/*     ──>  ms-inventory    :4002
+        |── /api/orders/*        ──>  ms-orders       :4003
+        |── /api/traceability/*  ──>  ms-traceability :4004
+        |── /chat/*              ──>  ms-agent        :5000  (admin only)
+        |
+        v
+PostgreSQL (relational data)  +  MongoDB (traceability event logs)
 ```
-
----
-
-## Apps
-
-| App | Port | Role | Description |
-|-----|------|------|-------------|
-| `login` | 3000 | All users | Shared authentication entry point. Redirects users to their role-specific app after login |
-| `operator` | 3001 | Production Operator | Manage manufacturing batches, work orders, report incidents, consult action history |
-| `logistics` | 3002 | Logistics Manager | Monitor stock levels, manage reservations, plan shipments, receive shortage alerts |
-| `sales` | 3003 | Sales Manager | Track customer orders, approve urgent orders, access sales analytics and customer history |
-| `admin` | 3004 | CEO / Management | Executive dashboards, consolidated KPIs, production mix, OTD trends, critical incident monitoring |
 
 ---
 
 ## Tech Stack
 
-**Frontend**
-- React 19 + TypeScript
-- Vite
-- React Router v7
-- Tailwind CSS v4
-- shadcn/ui (Radix UI primitives)
-- Recharts (data visualization)
-- next-themes (dark/light mode)
-- Lucide React (icons)
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite, TypeScript, Redux Toolkit, Tailwind CSS, shadcn/ui |
+| Gateway | Node.js, Express, http-proxy-middleware |
+| Microservices | Node.js, Express, Sequelize ORM |
+| Databases | PostgreSQL, MongoDB |
+| Authentication | JWT (HS256), bcrypt |
+| AI Agent | Python, FastAPI, Ollama (llama3.2), MCP, ChromaDB, sentence-transformers |
 
-**Backend**
-- Node.js + Express
-- JSON Web Tokens (JWT) for authentication
-- bcrypt for password hashing
-- PostgreSQL (`pg`)
+---
 
-**Tooling**
-- Docker / Docker Compose
-- pnpm
+## Project Structure
+
+```
+awproject/
+├── apps/
+│   ├── login/          # Authentication app          :3000
+│   ├── operator/       # Production operator app     :3001
+│   ├── logistics/      # Inventory & shipments app   :3002
+│   ├── sales/          # Orders & analytics app      :3003
+│   └── admin/          # Executive dashboard + ARIA  :3004
+└── services/
+    ├── api-gateway/    # JWT auth, RBAC, proxy        :4000
+    ├── ms-production/  # Batches, orders, incidents   :4001
+    ├── ms-inventory/   # Stock, reservations, alerts  :4002
+    ├── ms-orders/      # Customer orders, shipments   :4003
+    ├── ms-traceability/# Event logs, audit trail      :4004
+    └── ms-agent/       # ARIA AI assistant            :5000
+        ├── agent/
+        │   ├── agent.py          # ConversationAgent (ReAct loop)
+        │   └── prompts/system.md # ARIA system prompt
+        ├── mcp_server/server.py  # 11 ERP tools via MCP
+        ├── rag/
+        │   ├── ingest.py         # ChromaDB ingestion
+        │   └── retriever.py      # Semantic search
+        ├── docs/                 # Knowledge base documents
+        ├── index.py              # FastAPI HTTP server
+        └── requirements.txt
+```
+
+---
+
+## User Roles & Apps
+
+| Role | User | App Port | Access |
+|---|---|---|---|
+| Operator | Karim Aït-Ouali | :3001 | Production orders, batches, incidents |
+| Logistics | Claire Dupont | :3002 | Stock, reservations, shipments, alerts |
+| Sales | Sophie Martin | :3003 | Customer orders, approvals, analytics |
+| Admin | Philippe Laurent | :3004 | All modules + ARIA AI assistant |
 
 ---
 
@@ -77,135 +113,195 @@ AERONEXIS Dynamics manufactures high-precision mechanical components for civil a
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
-- PostgreSQL running locally (or via Docker)
+- Node.js >= 18
+- Python >= 3.10
+- PostgreSQL
+- MongoDB
+- [Ollama](https://ollama.ai) (for the AI agent)
 
-### 1. Clone the repository
+### 1. Database Setup
+
+Create a PostgreSQL database and run the schema:
 
 ```bash
-git clone https://github.com/your-org/aeronexis-dynamics.git
-cd aeronexis-dynamics
+psql -U postgres -c "CREATE DATABASE aeronexis;"
+psql -U postgres -d aeronexis -f services/api-gateway/seed/aeronexis_schema.sql
 ```
 
-### 2. Set up the API Gateway
+Seed initial data:
 
 ```bash
 cd services/api-gateway
-cp .env.example .env   # fill in your DB credentials and JWT secret
-npm install
-node index.js
+node seed/seed.js
 ```
 
-The gateway runs on **port 4000**.
+### 2. Install Dependencies
 
-**Required `.env` variables:**
+Run this from the project root to install all Node.js dependencies:
 
-```env
-PORT=4000
-JWT_SECRET=your_secret_key
+```bash
+# Gateway
+cd services/api-gateway && npm install
+
+# Microservices
+cd services/ms-production  && npm install
+cd services/ms-inventory   && npm install
+cd services/ms-orders      && npm install
+cd services/ms-traceability && npm install
+
+# Frontend apps
+cd apps/login     && npm install
+cd apps/operator  && npm install
+cd apps/logistics && npm install
+cd apps/sales     && npm install
+cd apps/admin     && npm install
+```
+
+### 3. AI Agent Setup
+
+```bash
+cd services/ms-agent
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Pull the Ollama model (first time only, ~2GB)
+ollama pull llama3.2
+
+# Ingest business documents into ChromaDB (first time only)
+python -m rag.ingest
+```
+
+---
+
+## Running the Project
+
+Open a terminal for each service:
+
+```bash
+# Services
+cd services/api-gateway    && node index.js          # :4000
+cd services/ms-production  && npm start              # :4001
+cd services/ms-inventory   && npm start              # :4002
+cd services/ms-orders      && npm start              # :4003
+cd services/ms-traceability && npm start             # :4004
+cd services/ms-agent       && python index.py        # :5000
+
+# Frontend apps
+cd apps/login     && npm run dev   # :3000
+cd apps/operator  && npm run dev   # :3001
+cd apps/logistics && npm run dev   # :3002
+cd apps/sales     && npm run dev   # :3003
+cd apps/admin     && npm run dev   # :3004
+```
+
+Make sure Ollama is running before starting the agent:
+
+```bash
+ollama serve
+```
+
+Then open **http://localhost:3000** and log in with one of the seeded users.
+
+---
+
+## AI Agent — ARIA
+
+ARIA (Aeronexis Real-time Intelligence Assistant) is an AI agent accessible exclusively to the admin. It uses a **ReAct (Reason + Act)** loop:
+
+1. Admin types a question in the chat widget (bottom-right of the admin app)
+2. ARIA retrieves relevant business procedures from ChromaDB (RAG)
+3. ARIA reasons which ERP data it needs and calls the appropriate MCP tool
+4. MCP tools query the live microservices via the API gateway using the admin's JWT
+5. ARIA synthesizes a data-backed answer
+
+**Example queries:**
+```
+"What are the current open critical incidents?"
+"Which products are below safety stock threshold?"
+"Show me the top customers by revenue this year."
+"Are there any urgent orders not yet in production?"
+"What is the batch completion rate this month?"
+```
+
+ARIA runs entirely locally — no data is sent to external APIs.
+
+---
+
+## API Gateway & RBAC
+
+The gateway enforces role-based access control on every request:
+
+| Role | ms-production | ms-inventory | ms-orders | ms-traceability | ms-agent |
+|---|---|---|---|---|---|
+| operator | ✅ | ❌ | ❌ | ✅ | ❌ |
+| logistics | ❌ | ✅ | Read only | ✅ | ❌ |
+| sales | ❌ | ❌ | ✅ | ✅ | ❌ |
+| admin | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+All requests must include:
+```
+Authorization: Bearer <jwt_token>
+```
+
+---
+
+## Database
+
+### PostgreSQL — Key Tables
+
+| Table | Description |
+|---|---|
+| `users` | All ERP users with role and site assignment |
+| `production_orders` | Manufacturing orders with status and priority |
+| `production_batches` | Batch lifecycle tracking per order |
+| `incidents` | Quality incidents reported on batches |
+| `raw_materials` | Inventory items with stock and safety threshold |
+| `material_reservations` | Material allocations per production order |
+| `customer_orders` | Customer orders with status and delivery dates |
+| `shipments` | Outbound shipments linked to customer orders |
+| `sites` | Production sites (Lyon, Toulouse) |
+
+### MongoDB — Traceability
+
+All state changes (batch updates, stock movements, shipment events) are logged as documents for full audit trail and traceability reconstruction.
+
+---
+
+## Environment Variables
+
+Each service uses a `.env` file. Key variables:
+
+**api-gateway/.env**
+```
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=aeronexis_erp
+DB_NAME=aeronexis
 DB_USER=postgres
 DB_PASSWORD=your_password
+JWT_SECRET=your_jwt_secret
+PORT=4000
 ```
 
-### 3. Start the frontend apps
-
-Each app is independent. Open a terminal for each:
-
-```bash
-# Login
-cd apps/login && npm install && npm run dev       # :3000
-
-# Operator
-cd apps/operator && npm install && npm run dev    # :3001
-
-# Logistics
-cd apps/logistics && npm install && npm run dev   # :3002
-
-# Sales
-cd apps/sales && npm install && npm run dev       # :3003
-
-# Admin
-cd apps/admin && npm install && npm run dev       # :3004
+**ms-agent/.env**
 ```
-
-### 4. (Optional) Run with Docker Compose
-
-```bash
-docker-compose up
+GATEWAY_URL=http://localhost:4000
+OLLAMA_HOST=http://localhost:11434
+AGENT_PORT=5000
+OLLAMA_MODEL=llama3.2
 ```
 
 ---
 
-## Authentication Flow
+## Default Users (after seeding)
 
-1. All users land on the **Login app** (`localhost:3000`)
-2. Credentials are sent to the API Gateway (`POST /auth/login`)
-3. The gateway validates against PostgreSQL, returns a **JWT + role**
-4. The frontend stores `aeronexis_token` and `aeronexis_role` in `localStorage`
-5. Each app's `AuthGuard` checks for a valid token and matching role on every route — unauthorized users are redirected back to the login page
-6. JWT expires after **8 hours**
-
----
-
-## Project Structure
-
-```
-aeronexis-dynamics/
-├── apps/
-│   ├── login/            # Shared auth UI
-│   ├── operator/         # Production operator dashboard
-│   ├── logistics/        # Logistics manager dashboard
-│   ├── sales/            # Sales manager dashboard
-│   └── admin/            # Executive dashboard
-│       ├── src/
-│       │   ├── components/
-│       │   │   ├── AdminLayout.tsx
-│       │   │   └── theme-provider.tsx
-│       │   ├── pages/
-│       │   │   ├── Overview.tsx
-│       │   │   ├── Production.tsx
-│       │   │   ├── Incidents.tsx
-│       │   │   ├── Sites.tsx
-│       │   │   └── Reports.tsx
-│       │   ├── lib/
-│       │   │   └── admin-data.ts
-│       │   ├── main.tsx
-│       │   └── index.css
-│       └── ...
-├── services/
-│   └── api-gateway/      # Express auth + routing service
-│       ├── index.js
-│       └── .env
-└── docker-compose.yml
-```
+| Name | Email | Password | Role |
+|---|---|---|---|
+| Karim Aït-Ouali | karim@aeronexis.com | password123 | operator |
+| Claire Dupont | claire@aeronexis.com | password123 | logistics |
+| Sophie Martin | sophie@aeronexis.com | password123 | sales |
+| Philippe Laurent | philippe@aeronexis.com | password123 | admin |
 
 ---
 
-## Key Features
-
-- **Role-based routing** — each user role has a dedicated app with its own navigation and feature set
-- **JWT authentication** — stateless token auth with 8-hour expiry, verified on every protected route
-- **Dark / Light mode** — powered by `next-themes`, persisted across sessions, consistent across all apps
-- **Responsive layout** — desktop sidebar + mobile sheet drawer on all dashboards
-- **KPI dashboards** — revenue vs target charts, production mix pie charts, OTD trend lines, top customer tables
-- **Incident tracking** — critical incident badges in navigation, alert banners on the overview page
-- **Stock & reservation management** — logistics app tracks inventory levels and flags shortages
-
----
-
-## Development Notes
-
-- Each frontend app is fully independent — they share no code at runtime, only design conventions
-- All apps use the same `shadcn/ui` component library and Tailwind CSS v4 setup
-- The `@/` path alias resolves to each app's `src/` directory
-- Mock data lives in `src/lib/*-data.ts` files — replace with real API calls as backend endpoints are added
-
----
-
-## Team
-
-Built as part of an academic ERP project — AERONEXIS Dynamics (Project 1).
+*AERONEXIS Dynamics — Digital Transformation Project — 2025*
