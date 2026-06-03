@@ -1,0 +1,8 @@
+ollama
+chromadb
+sentence-transformers
+mcp
+httpx
+fastapi
+uvicorn
+python-dotenv

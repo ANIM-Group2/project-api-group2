@@ -1,0 +1,29 @@
+AERONEXIS DYNAMICS - PRODUCTION PROCEDURES
+
+INCIDENT MANAGEMENT
+Any incident with severity critical or high must be reported to the production manager within 2 hours.
+A batch with an open critical incident must be quarantined immediately.
+Incidents with status open or investigating require daily follow-up.
+Resolution notes must be added before closing an incident.
+
+PRODUCTION ORDER PRIORITIES
+Priority critical: must start within 24 hours of creation. Requires immediate resource allocation.
+Priority high: must start within 48 hours. Supervisor approval required if delayed.
+Priority normal: standard scheduling applies.
+Priority low: can be scheduled according to capacity.
+
+BATCH QUALITY CONTROL
+A batch is at risk if quantity_produced is below 80% of the planned quantity.
+Quarantined batches cannot be shipped and require quality review before release.
+Completed batches must pass final inspection before being linked to customer orders.
+
+STOCK AND INVENTORY
+Raw material stock below safety threshold triggers automatic replenishment request.
+Reserved materials cannot be used for other orders without logistics manager approval.
+Stock adjustments above 100 units require admin validation.
+
+CUSTOMER ORDERS
+An order with status in_production means at least one active batch is running.
+Urgent orders must be prioritized in production scheduling.
+Orders with expected delivery within 7 days are considered time-critical.
+A confirmed order that has not entered production within 48 hours requires escalation.

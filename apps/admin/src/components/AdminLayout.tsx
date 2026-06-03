@@ -10,9 +10,10 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useAppDispatch, useAuth } from '@/store/hooks'
 import { logout } from '@/store/authSlice'
+import { AriaChat } from './AriaChat'
 import {
   Plane, LayoutDashboard, Factory, AlertTriangle, MapPin,
-  FileBarChart, Menu, Moon, Sun, ChevronDown, User, Settings, LogOut,
+  FileBarChart, Menu, Moon, Sun, ChevronDown, User, LogOut,
 } from 'lucide-react';
 
 const GATEWAY = 'http://localhost:4000';
@@ -121,6 +122,7 @@ export function AdminLayout() {
   );
 
   return (
+    <>
     <div className="flex h-screen bg-background">
       <aside className="hidden w-64 flex-shrink-0 flex-col border-r border-border/50 bg-card lg:flex">
         {renderSidebar()}
@@ -163,7 +165,6 @@ export function AdminLayout() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => navigate('/profile')}><User className="mr-2 h-4 w-4" />Profile & Settings</DropdownMenuItem>
-                {/* <DropdownMenuItem><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem> */}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500">
                   <LogOut className="mr-2 h-4 w-4" />Logout
@@ -176,5 +177,7 @@ export function AdminLayout() {
         <main className="flex-1 overflow-y-auto p-4 lg:p-6"><Outlet /></main>
       </div>
     </div>
+    <AriaChat />
+    </>
   );
 }

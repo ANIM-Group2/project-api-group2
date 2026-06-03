@@ -1,0 +1,22 @@
+AERONEXIS DYNAMICS - KEY PERFORMANCE INDICATORS
+
+PRODUCTION KPIs
+Batch completion rate: percentage of batches reaching completed status vs planned.
+Incident rate: number of incidents per batch. Target below 0.2 incidents per batch.
+On-time delivery rate: percentage of orders delivered by the expected date. Target above 95%.
+
+INVENTORY KPIs
+Stock coverage: number of days of production possible with current raw material levels.
+Reservation rate: percentage of stock reserved vs total available. Alert if above 80%.
+Alert frequency: number of low-stock alerts per week. Target below 5 per week.
+
+SALES KPIs
+Revenue YTD: total confirmed revenue for the current year.
+Average order value: total revenue divided by number of confirmed orders.
+Customer concentration: percentage of revenue from top 3 customers. Risk if above 60%.
+Order approval delay: time between draft and confirmed status. Target below 24 hours.
+
+QUALITY KPIs
+Critical incident ratio: critical incidents as percentage of total. Target below 10%.
+Quarantine rate: percentage of batches entering quarantine. Target below 2%.
+Open incident aging: incidents open more than 72 hours. Target zero.

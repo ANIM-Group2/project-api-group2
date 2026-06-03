@@ -1,0 +1,30 @@
+AERONEXIS DYNAMICS - USER ROLES AND RESPONSIBILITIES
+
+OPERATOR (Karim Ait-Ouali) - Site: Toulouse
+Manages production batches: creates, starts, and completes them.
+Reports anomalies and incidents on batches he works on.
+Can view manufacturing orders assigned to his site.
+Cannot approve customer orders or modify stock levels directly.
+
+LOGISTICS MANAGER (Claire Dupont) - Site: Toulouse
+Manages raw material inventory and stock levels.
+Creates material reservations for production orders.
+Creates and tracks shipments for customer orders.
+Monitors stock alerts and initiates replenishment.
+Must approve any inter-order material transfer.
+
+SALES MANAGER (Sophie Martin) - Site: Toulouse
+Creates and approves customer orders.
+Monitors order status and manages customer relationships.
+Accesses sales analytics and revenue dashboards.
+Cannot modify production schedules or inventory directly.
+
+ADMIN / GENERAL MANAGER (Philippe Laurent) - General Management
+Full access to all ERP modules across all sites.
+Approves critical stock adjustments above 100 units.
+Views executive dashboard: production KPIs, incidents, revenue, stock health.
+The AI agent ARIA is available exclusively to the admin role.
+
+PRODUCTION SITES
+Lyon site: primary manufacturing site, handles standard aerospace components.
+Toulouse site: secondary site, specializes in precision components and testing.
