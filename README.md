@@ -1,4 +1,4 @@
-# AERONEXIS Dynamics — ERP System
+# AERONEXIS Dynamics   ERP System
 
 > **"Precision Beyond Limits"**
 
@@ -15,7 +15,7 @@ A full-stack industrial ERP built for AERONEXIS Dynamics, an aerospace precision
 - [User Roles & Apps](#user-roles--apps)
 - [Getting Started](#getting-started)
 - [Running the Project](#running-the-project)
-- [AI Agent — ARIA](#ai-agent--aria)
+- [AI Agent   ARIA](#ai-agent--aria)
 - [API Gateway & RBAC](#api-gateway--rbac)
 - [Database](#database)
 - [Environment Variables](#environment-variables)
@@ -26,10 +26,10 @@ A full-stack industrial ERP built for AERONEXIS Dynamics, an aerospace precision
 
 AERONEXIS Dynamics manufactures high-precision mechanical parts for civil aviation and long-range drones. This ERP system covers:
 
-- **Production** — manufacturing orders, batch lifecycle, quality incident reporting
-- **Inventory** — raw material stock, reservations, shipments, stock alerts
-- **Sales** — customer orders, approval workflows, revenue analytics
-- **Management** — executive dashboards, KPI reporting, AI-powered assistant (ARIA)
+- **Production**   manufacturing orders, batch lifecycle, quality incident reporting
+- **Inventory**   raw material stock, reservations, shipments, stock alerts
+- **Sales**   customer orders, approval workflows, revenue analytics
+- **Management**   executive dashboards, KPI reporting, AI-powered assistant (ARIA)
 
 ---
 
@@ -205,7 +205,7 @@ Then open **http://localhost:3000** and log in with one of the seeded users.
 
 ---
 
-## AI Agent — ARIA
+## AI Agent   ARIA
 
 ARIA (Aeronexis Real-time Intelligence Assistant) is an AI agent accessible exclusively to the admin. It uses a **ReAct (Reason + Act)** loop:
 
@@ -224,7 +224,7 @@ ARIA (Aeronexis Real-time Intelligence Assistant) is an AI agent accessible excl
 "What is the batch completion rate this month?"
 ```
 
-ARIA runs entirely locally — no data is sent to external APIs.
+ARIA runs entirely locally   no data is sent to external APIs.
 
 ---
 
@@ -248,7 +248,7 @@ Authorization: Bearer <jwt_token>
 
 ## Database
 
-### PostgreSQL — Key Tables
+### PostgreSQL   Key Tables
 
 | Table | Description |
 |---|---|
@@ -262,7 +262,7 @@ Authorization: Bearer <jwt_token>
 | `shipments` | Outbound shipments linked to customer orders |
 | `sites` | Production sites (Lyon, Toulouse) |
 
-### MongoDB — Traceability
+### MongoDB   Traceability
 
 All state changes (batch updates, stock movements, shipment events) are logged as documents for full audit trail and traceability reconstruction.
 
@@ -304,4 +304,4 @@ OLLAMA_MODEL=llama3.2
 
 ---
 
-*AERONEXIS Dynamics — Digital Transformation Project — 2025*
+*AERONEXIS Dynamics   Digital Transformation Project   2025*
