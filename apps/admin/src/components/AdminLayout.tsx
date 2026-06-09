@@ -12,7 +12,7 @@ import { useAppDispatch, useAuth } from '@/store/hooks'
 import { logout } from '@/store/authSlice'
 import { AriaChat } from './AriaChat'
 import {
-  Plane, LayoutDashboard, Factory, AlertTriangle, MapPin,
+  Plane, Bot, LayoutDashboard, Factory, AlertTriangle, MapPin,
   FileBarChart, Menu, Moon, Sun, ChevronDown, User, LogOut,
 } from 'lucide-react';
 
@@ -32,6 +32,7 @@ const pageTitles: Record<string, string> = {
   '/incidents':  'Incidents',
   '/sites':      'Sites',
   '/reports':    'Reports',
+  '/aria-history': 'ARIA History',
 };
 
 export function AdminLayout() {
