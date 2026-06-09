@@ -12,15 +12,3 @@ Thumbs.db
 
 # IDE
 .vscode/settings.json
-# ChromaDB vector store (large binary files)
-services/ms-agent/.chromadb/
-**/.chromadb/
- 
-# Python cache
-**/__pycache__/
-**/*.pyc
-*.pyc
- 
-# Node
-**/node_modules/
- 

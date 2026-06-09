@@ -1,3 +1,42 @@
+// import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+// import { LogisticsLayout } from '@/components/LogisticsLayout'
+// import Dashboard from '@/pages/Dashboard'
+// import Stock from '@/pages/Stock'
+// import Reservations from '@/pages/Reservations'
+// import Shipments from '@/pages/Shipments'
+// import Alerts from '@/pages/Alerts'
+// import ProfileSettings from '@/pages/ProfileSettings'
+// import AuthGuard from '@/components/AuthGuard'
+
+// function AppRoutes() {
+//   return (
+//     <LogisticsLayout>
+//       <Routes>
+//         <Route path="/"             element={<Navigate to="/dashboard" replace />} />
+//         <Route path="/dashboard"    element={<Dashboard />} />
+//         <Route path="/stock"        element={<Stock />} />
+//         <Route path="/reservations" element={<Reservations />} />
+//         <Route path="/shipments"    element={<Shipments />} />
+//         <Route path="/alerts"       element={<Alerts />} />
+//         <Route path="/profile"      element={<ProfileSettings />} />
+//       </Routes>
+//     </LogisticsLayout>
+//   )
+// }
+
+// export default function App() {
+//   return (
+//     <AuthGuard>
+//       <BrowserRouter>
+//         <AppRoutes />
+//       </BrowserRouter>
+//     </AuthGuard>
+//   )
+// }
+
+
+
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { LogisticsLayout } from '@/components/LogisticsLayout'
 import Dashboard from '@/pages/Dashboard'
@@ -6,29 +45,31 @@ import Reservations from '@/pages/Reservations'
 import Shipments from '@/pages/Shipments'
 import Alerts from '@/pages/Alerts'
 import ProfileSettings from '@/pages/ProfileSettings'
+import NotFound from '@/pages/NotFound'
+import Unauthorized from '@/pages/Unauthorized'
 import AuthGuard from '@/components/AuthGuard'
-
-function AppRoutes() {
-  return (
-    <LogisticsLayout>
-      <Routes>
-        <Route path="/"             element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard"    element={<Dashboard />} />
-        <Route path="/stock"        element={<Stock />} />
-        <Route path="/reservations" element={<Reservations />} />
-        <Route path="/shipments"    element={<Shipments />} />
-        <Route path="/alerts"       element={<Alerts />} />
-        <Route path="/profile"      element={<ProfileSettings />} />
-      </Routes>
-    </LogisticsLayout>
-  )
-}
 
 export default function App() {
   return (
     <AuthGuard>
       <BrowserRouter>
-        <AppRoutes />
+        <Routes>
+          <Route path="/403" element={<Unauthorized />} />
+          <Route path="*" element={
+            <LogisticsLayout>
+              <Routes>
+                <Route path="/"             element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard"    element={<Dashboard />} />
+                <Route path="/stock"        element={<Stock />} />
+                <Route path="/reservations" element={<Reservations />} />
+                <Route path="/shipments"    element={<Shipments />} />
+                <Route path="/alerts"       element={<Alerts />} />
+                <Route path="/profile"      element={<ProfileSettings />} />
+                <Route path="*"             element={<NotFound />} />
+              </Routes>
+            </LogisticsLayout>
+          } />
+        </Routes>
       </BrowserRouter>
     </AuthGuard>
   )
