@@ -62,6 +62,8 @@ export interface ProductionKPIs {
   completed_orders: number
   critical_orders: number
   total_orders: number
+  yield_rate: number | null
+  completion_rate: number
 }
 
 export interface IncidentStats {

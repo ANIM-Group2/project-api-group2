@@ -5,7 +5,7 @@ const stockMovementSchema = new mongoose.Schema({
   product_id:   { type: Number, required: true },
   product_ref:  { type: String, required: true },
   site_id:      { type: Number, required: true },
-  movement_type:{ type: String, enum: ['in', 'out', 'adjustment', 'reservation'], required: true },
+  movement_type:{ type: String, enum: ['in', 'out', 'entry', 'exit', 'adjustment', 'reservation', 'cancellation'], required: true },
   quantity:      { type: Number, required: true },
   previous_qty:  { type: Number },
   new_qty:       { type: Number },

@@ -56,14 +56,36 @@ async function updateOrderStatus(id, status) {
 }
 
 async function getKPIs() {
-  const [active, completed, critical, total] = await Promise.all([
+  const [active, completed, critical, total, batches] = await Promise.all([
     ProductionOrder.count({ where: { status: 'in_progress' } }),
     ProductionOrder.count({ where: { status: 'completed' } }),
     ProductionOrder.count({ where: { priority: 'critical', status: ['planned', 'in_progress'] } }),
     ProductionOrder.count(),
+    Batch.findAll({
+      attributes: ['quantity_produced', 'status'],
+      include: [{ model: ProductionOrder, as: 'production_order', attributes: ['quantity_ordered'] }],
+      raw: true,
+      nest: true,
+    }),
   ]);
 
-  return { active_orders: active, completed_orders: completed, critical_orders: critical, total_orders: total };
+  // Yield rate: avg(quantity_produced / quantity_ordered) for completed batches
+  const doneBatches = batches.filter(b => b.status === 'completed' && b.production_order?.quantity_ordered > 0);
+  const yieldRate = doneBatches.length > 0
+    ? Math.round(doneBatches.reduce((sum, b) => sum + (b.quantity_produced / b.production_order.quantity_ordered), 0) / doneBatches.length * 100)
+    : 0;
+
+  // Completion rate: completed orders / total
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return {
+    active_orders:    active,
+    completed_orders: completed,
+    critical_orders:  critical,
+    total_orders:     total,
+    yield_rate:       yieldRate,
+    completion_rate:  completionRate,
+  };
 }
 
 module.exports = { getAllOrders, getOrderById, createOrder, updateOrderStatus, getKPIs };

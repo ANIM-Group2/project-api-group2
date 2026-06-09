@@ -6,7 +6,7 @@ const { authorize } = require('../middleware/auth.middleware');
 // Stock — logistics + admin read; only admin adjusts
 router.get('/',                    authorize('logistics', 'admin'), ctrl.getStock);
 router.get('/low-stock',           authorize('logistics', 'admin'), ctrl.getLowStock);
-router.post('/adjust',             authorize('admin'),               ctrl.adjustStock);
+router.post('/adjust',             authorize('logistics', 'admin'),  ctrl.adjustStock);
 router.get('/log',                 authorize('logistics', 'admin'), ctrl.getLog);
 
 // Alerts — logistics + admin

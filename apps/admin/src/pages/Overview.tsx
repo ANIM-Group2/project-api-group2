@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, ShoppingCart, Clock, AlertTriangle, Activity, Layers, Loader2, AlertCircle } from 'lucide-react'
+import { DollarSign, ShoppingCart, Clock, AlertTriangle, Activity, Layers, Loader2, AlertCircle, TrendingUp, CheckCircle2 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -53,12 +53,14 @@ export default function Overview() {
   const ordersByStatus = salesStats?.orders_by_status ?? []
 
   const kpiCards = [
-    { title: 'Revenue YTD',       value: formatCurrency(Number(salesStats?.revenue_ytd ?? 0)), icon: DollarSign,    color: 'text-green-400' },
-    { title: 'Active Orders',     value: salesStats?.active_orders ?? '—',                      icon: ShoppingCart,  color: 'text-blue-400' },
-    { title: 'Production Orders', value: prodKPIs?.active_orders ?? '—',                        icon: Layers,        color: 'text-purple-400' },
-    { title: 'Critical Orders',   value: prodKPIs?.critical_orders ?? '—',                      icon: Clock,         color: 'text-amber-400' },
-    { title: 'Open Incidents',    value: incidents.filter(i => i.status === 'open').length,     icon: AlertTriangle, color: 'text-red-400', highlight: true },
-    { title: 'Low Stock Items',   value: lowStock.length,                                        icon: Activity,      color: 'text-orange-400', highlight: lowStock.length > 0 },
+    { title: 'Revenue YTD',        value: formatCurrency(Number(salesStats?.revenue_ytd ?? 0)),                      icon: DollarSign,    color: 'text-green-400' },
+    { title: 'Active Orders',      value: salesStats?.active_orders ?? '—',                                          icon: ShoppingCart,  color: 'text-blue-400' },
+    { title: 'Production Orders',  value: prodKPIs?.active_orders ?? '—',                                            icon: Layers,        color: 'text-purple-400' },
+    { title: 'Critical Orders',    value: prodKPIs?.critical_orders ?? '—',                                          icon: Clock,         color: 'text-amber-400' },
+    { title: 'Open Incidents',     value: incidents.filter(i => i.status === 'open').length,                         icon: AlertTriangle, color: 'text-red-400',    highlight: true },
+    { title: 'Low Stock Items',    value: lowStock.length,                                                            icon: Activity,      color: 'text-orange-400', highlight: lowStock.length > 0 },
+    { title: 'Yield Rate',         value: prodKPIs?.yield_rate != null ? `${prodKPIs.yield_rate}%` : '0%',            icon: TrendingUp,    color: 'text-teal-400' },
+    { title: 'Completion Rate',    value: prodKPIs?.completion_rate != null ? `${prodKPIs.completion_rate}%` : '0%',  icon: CheckCircle2,  color: 'text-green-400' },
   ]
 
   return (
