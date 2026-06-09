@@ -1,3 +1,274 @@
+// @ts-nocheck
+// const {
+//   Batch, ProductionOrder, Incident,
+//   Product, Site, User,
+//   RawMaterial, BatchMaterial, MaterialReservation,
+// } = require('../models/trace.model');
+
+// const { BatchActionLog, IncidentLog, StockMovement } = require('../models/audit-log.model');
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // BATCH TRACEABILITY — the German customer scenario
+// // Reconstructs the complete life of a batch from both DBs
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// async function getBatchTrace(batchId) {
+//   // 1. Core batch data from PostgreSQL
+//   const batch = await Batch.findByPk(batchId, {
+//     include: [
+//       {
+//         model: ProductionOrder, as: 'production_order',
+//         include: [
+//           { model: Product, as: 'product' },
+//           { model: Site,    as: 'site' },
+//           { model: User,    as: 'creator', attributes: ['first_name', 'last_name', 'email'] },
+//         ],
+//       },
+//       { model: User, as: 'operator', attributes: ['first_name', 'last_name', 'email'] },
+//       {
+//         model: Incident, as: 'incidents',
+//         include: [{ model: User, as: 'reporter', attributes: ['first_name', 'last_name'] }],
+//       },
+//     ],
+//   });
+
+//   if (!batch) throw new Error('Batch not found');
+
+//   // 2. Materials used in this batch from PostgreSQL
+//   const materials = await BatchMaterial.findAll({
+//     where: { batch_id: batchId },
+//     include: [{ model: RawMaterial, as: 'material', attributes: ['reference', 'name', 'unit'] }],
+//   });
+
+//   // 3. Full action history from MongoDB (sorted oldest → newest)
+//   const [actionLogs, incidentLogs] = await Promise.all([
+//     BatchActionLog.find({ batch_id: Number(batchId) }).sort({ timestamp: 1 }),
+//     IncidentLog.find({ batch_id: Number(batchId) }).sort({ timestamp: 1 }),
+//   ]);
+
+//   // 4. Merge and sort all events into a unified timeline
+//   const timeline = [
+//     ...actionLogs.map(e => ({
+//       type:      'batch_action',
+//       action:    e.action,
+//       from:      e.previous_status,
+//       to:        e.new_status,
+//       operator:  e.operator_id,
+//       notes:     e.notes,
+//       timestamp: e.timestamp,
+//     })),
+//     ...incidentLogs.map(e => ({
+//       type:      'incident',
+//       action:    e.action,
+//       title:     e.title,
+//       severity:  e.severity,
+//       status:    e.new_status,
+//       reporter:  e.reported_by,
+//       timestamp: e.timestamp,
+//     })),
+//   ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+//   return {
+//     batch,
+//     materials_used: materials,
+//     timeline,
+//     summary: {
+//       total_events:    timeline.length,
+//       incidents_count: batch.incidents.length,
+//       critical_incidents: batch.incidents.filter(i => i.severity === 'critical').length,
+//       current_status:  batch.status,
+//     },
+//   };
+// }
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // INCIDENT TRACEABILITY — full context for a single incident
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// async function getIncidentTrace(incidentId) {
+//   const incident = await Incident.findByPk(incidentId, {
+//     include: [
+//       {
+//         model: Batch, as: 'batch',
+//         include: [
+//           {
+//             model: ProductionOrder, as: 'production_order',
+//             include: [
+//               { model: Product, as: 'product' },
+//               { model: Site,    as: 'site' },
+//             ],
+//           },
+//         ],
+//       },
+//       { model: User, as: 'reporter', attributes: ['first_name', 'last_name', 'email'] },
+//     ],
+//   });
+
+//   if (!incident) throw new Error('Incident not found');
+
+//   // Audit trail for this incident from MongoDB
+//   const logs = await IncidentLog
+//     .find({ incident_id: Number(incidentId) })
+//     .sort({ timestamp: 1 });
+
+//   return { incident, audit_trail: logs };
+// }
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // ORDER TRACEABILITY — end-to-end from customer order to delivery
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// async function getOrderTrace(customerOrderId) {
+//   // Find all production orders linked to this customer order
+//   const productionOrders = await ProductionOrder.findAll({
+//     where: { customer_order_id: customerOrderId },
+//     include: [
+//       { model: Product, as: 'product' },
+//       { model: Site,    as: 'site' },
+//       {
+//         model: Batch, as: 'batches',
+//         include: [
+//           { model: Incident, as: 'incidents' },
+//           { model: User,     as: 'operator', attributes: ['first_name', 'last_name'] },
+//         ],
+//       },
+//     ],
+//   });
+
+//   if (!productionOrders.length)
+//     throw new Error('No production orders found for this customer order');
+
+//   // Material reservations for all production orders
+//   const orderIds = productionOrders.map(o => o.production_order_id);
+//   const reservations = await MaterialReservation.findAll({
+//     where: { production_order_id: orderIds },
+//     include: [{ model: RawMaterial, as: 'material', attributes: ['reference', 'name', 'unit'] }],
+//   });
+
+//   // All batch IDs across all production orders
+//   const batchIds = productionOrders.flatMap(o => o.batches.map(b => b.batch_id));
+
+//   // Fetch all batch action logs from MongoDB in one query
+//   const batchLogs = await BatchActionLog
+//     .find({ batch_id: { $in: batchIds } })
+//     .sort({ timestamp: 1 });
+
+//   return {
+//     customer_order_id: customerOrderId,
+//     production_orders: productionOrders,
+//     material_reservations: reservations,
+//     batch_events: batchLogs,
+//     summary: {
+//       production_orders_count: productionOrders.length,
+//       total_batches:           batchIds.length,
+//       total_incidents:         productionOrders.flatMap(o => o.batches).flatMap(b => b.incidents).length,
+//       reservations_count:      reservations.length,
+//     },
+//   };
+// }
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // MATERIAL TRACEABILITY — which batches used a specific material
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// async function getMaterialTrace(materialId) {
+//   const material = await RawMaterial.findByPk(materialId);
+//   if (!material) throw new Error('Material not found');
+
+//   // All batches that used this material
+//   const usages = await BatchMaterial.findAll({
+//     where: { material_id: materialId },
+//     include: [{
+//       model: Batch, as: 'batch',
+//       include: [
+//         {
+//           model: ProductionOrder, as: 'production_order',
+//           include: [{ model: Product, as: 'product', attributes: ['name', 'reference'] }],
+//         },
+//         { model: Incident, as: 'incidents', attributes: ['incident_id', 'title', 'severity', 'status'] },
+//       ],
+//     }],
+//   });
+
+//   // Stock movements for this material from MongoDB
+//   const movements = await StockMovement
+//     .find({ product_id: Number(materialId) })
+//     .sort({ performed_at: -1 })
+//     .limit(50);
+
+//   return {
+//     material,
+//     used_in_batches: usages,
+//     stock_movements: movements,
+//     summary: {
+//       batches_count:    usages.length,
+//       incidents_linked: usages.flatMap(u => u.batch?.incidents || []).length,
+//     },
+//   };
+// }
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// // EXECUTIVE DASHBOARD — admin KPIs across all services
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// async function getDashboard() {
+//   const [
+//     totalBatches,
+//     batchesByStatus,
+//     openIncidents,
+//     criticalIncidents,
+//     recentIncidents,
+//     recentBatchLogs,
+//   ] = await Promise.all([
+//     Batch.count(),
+//     Batch.findAll({
+//       attributes: [
+//         'status',
+//         [require('../config/postgres.config').fn('COUNT', require('../config/postgres.config').col('batch_id')), 'count'],
+//       ],
+//       group: ['status'],
+//       raw: true,
+//     }),
+//     Incident.count({ where: { status: 'open' } }),
+//     Incident.count({ where: { severity: 'critical', status: ['open', 'investigating'] } }),
+//     Incident.findAll({
+//       where: { status: ['open', 'investigating'] },
+//       include: [
+//         {
+//           model: Batch, as: 'batch',
+//           include: [{ model: ProductionOrder, as: 'production_order', include: [{ model: Product, as: 'product', attributes: ['name'] }] }],
+//         },
+//         { model: User, as: 'reporter', attributes: ['first_name', 'last_name'] },
+//       ],
+//       order: [['detected_at', 'DESC']],
+//       limit: 10,
+//     }),
+//     BatchActionLog.find({}).sort({ timestamp: -1 }).limit(20),
+//   ]);
+
+//   return {
+//     kpis: {
+//       total_batches:       totalBatches,
+//       open_incidents:      openIncidents,
+//       critical_incidents:  criticalIncidents,
+//     },
+//     batches_by_status:  batchesByStatus,
+//     recent_incidents:   recentIncidents,
+//     recent_batch_events: recentBatchLogs,
+//   };
+// }
+
+// module.exports = {
+//   getBatchTrace,
+//   getIncidentTrace,
+//   getOrderTrace,
+//   getMaterialTrace,
+//   getDashboard,
+// };
+
+
+
+
 const {
   Batch, ProductionOrder, Incident,
   Product, Site, User,
@@ -257,10 +528,99 @@ async function getDashboard() {
   };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALL LOGS — for admin log viewer
+// ─────────────────────────────────────────────────────────────────────────────
+async function getAllLogs({ limit = 100, type, from, to } = {}) {
+  const dateFilter = {};
+  if (from) dateFilter.$gte = new Date(from);
+  if (to)   dateFilter.$lte = new Date(to);
+
+  const batchFilter   = Object.keys(dateFilter).length ? { timestamp: dateFilter }    : {};
+  const stockFilter   = Object.keys(dateFilter).length ? { performed_at: dateFilter } : {};
+
+  const [batchLogs, incidentLogs, stockMovements] = await Promise.all([
+    type && type !== 'batch_action'   ? [] : BatchActionLog.find(batchFilter).sort({ timestamp: -1 }).limit(limit),
+    type && type !== 'incident'        ? [] : IncidentLog.find(batchFilter).sort({ timestamp: -1 }).limit(limit),
+    type && type !== 'stock_movement'  ? [] : StockMovement.find(stockFilter).sort({ performed_at: -1 }).limit(limit),
+  ]);
+
+  const merged = [
+    ...batchLogs.map(l => ({ ...l.toObject(), _type: 'batch_action',   _time: l.timestamp })),
+    ...incidentLogs.map(l => ({ ...l.toObject(), _type: 'incident',    _time: l.timestamp })),
+    ...stockMovements.map(l => ({ ...l.toObject(), _type: 'stock_movement', _time: l.performed_at })),
+  ].sort((a, b) => new Date(b._time) - new Date(a._time)).slice(0, limit);
+
+  return merged;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOG EVENT — inter-service communication endpoint
+// Other microservices POST here when critical events happen
+// ─────────────────────────────────────────────────────────────────────────────
+async function logEvent(event) {
+  const { type, data } = event;
+
+  switch (type) {
+    case 'batch_status_change':
+      await BatchActionLog.create({
+        batch_id:        data.batch_id,
+        batch_number:    data.batch_number,
+        action:          'status_change',
+        previous_status: data.previous_status,
+        new_status:      data.new_status,
+        operator_id:     data.operator_id,
+        actor_name:      data.actor_name,
+        notes:           data.notes || `Status changed to ${data.new_status}`,
+        timestamp:       new Date(),
+      });
+      break;
+
+    case 'incident_reported':
+      await IncidentLog.create({
+        incident_id:  data.incident_id,
+        batch_id:     data.batch_id,
+        batch_number: data.batch_number,
+        action:       'reported',
+        severity:     data.severity,
+        title:        data.title,
+        reported_by:  data.reported_by,
+        actor_name:   data.actor_name,
+        new_status:   'open',
+        timestamp:    new Date(),
+      });
+      break;
+
+    case 'stock_movement':
+      await StockMovement.create({
+        product_id:    data.material_id,
+        product_ref:   data.reference,
+        site_id:       data.site_id || 1,
+        movement_type: data.movement_type,
+        quantity:      data.quantity,
+        previous_qty:  data.previous_qty,
+        new_qty:       data.new_qty,
+        reason:        data.reason,
+        reference_doc: data.reference_doc,
+        performed_by:  data.performed_by,
+        performed_at:  new Date(),
+      });
+      break;
+
+    default:
+      throw new Error(`Unknown event type: ${type}`);
+  }
+
+  return { logged: true, type };
+}
+
 module.exports = {
   getBatchTrace,
   getIncidentTrace,
   getOrderTrace,
   getMaterialTrace,
   getDashboard,
+  getAllLogs,
+  logEvent,
 };

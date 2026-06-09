@@ -9,6 +9,7 @@ const BatchActionLog = mongoose.model('BatchActionLog', new mongoose.Schema({
   new_status:      { type: String },
   operator_id:     { type: Number },
   notes:           { type: String },
+  actor_name:      { type: String },
   timestamp:       { type: Date, index: true },
 }), 'batch_action_logs');
 
@@ -21,6 +22,7 @@ const IncidentLog = mongoose.model('IncidentLog', new mongoose.Schema({
   severity:     { type: String },
   title:        { type: String },
   reported_by:  { type: Number },
+  actor_name:   { type: String },
   new_status:   { type: String },
   timestamp:    { type: Date },
 }), 'incident_logs');
