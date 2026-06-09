@@ -133,10 +133,10 @@ export default function Reports() {
               {saveMsg}
             </span>
           )}
-          <Button variant="outline" className="gap-2" onClick={handleSaveReport} disabled={saving}>
+          {/* <Button variant="outline" className="gap-2" onClick={handleSaveReport} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Save to DB
-          </Button>
+          </Button> */}
           <Button className="gap-2" onClick={handleExport}>
             <Download className="w-4 h-4" /> Export PDF
           </Button>
