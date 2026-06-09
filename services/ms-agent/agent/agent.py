@@ -17,7 +17,7 @@ load_dotenv()
 
 
 class ConversationAgent:
-    def __init__(self, model: str = "llama3.2", verbose: bool = False):
+    def __init__(self, model: str = "llama3.1", verbose: bool = False):
         self.model   = model
         self.verbose = verbose
         self.client  = ollama.Client(host=os.getenv("OLLAMA_HOST", "http://localhost:11434"))
@@ -29,9 +29,11 @@ class ConversationAgent:
         self.messages = [{"role": "system", "content": system_prompt}]
 
     async def _get_mcp_session(self, stack):
+        import os as _os
         params = StdioServerParameters(
             command="python",
             args=["-m", "mcp_server.server"],
+            env={**_os.environ},  # explicitly pass all env vars including ADMIN_TOKEN
         )
         transport = await stack.enter_async_context(stdio_client(params))
         read, write = transport

@@ -1,0 +1,200 @@
+services:
+
+  # ── Databases ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       aeronexisdb
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: nitro2020
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+
+  mongodb:
+    image: mongo:7-jammy
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 5
+
+  # ── AI / LLM ──────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # ── Backend Services ──────────────────────────────────────────────────────
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "4000:4000"
+    environment:
+      PORT:               4000
+      NODE_ENV:           production
+      DB_HOST:            postgres
+      DB_PORT:            5432
+      DB_NAME:            aeronexisdb
+      DB_USER:            postgres
+      DB_PASSWORD:        nitro2020
+      JWT_SECRET:         aeronexis_super_secret_key_2026
+      JWT_EXPIRES_IN:     8h
+      MS_PRODUCTION_URL:  http://ms-production:4001
+      MS_INVENTORY_URL:   http://ms-inventory:4002
+      MS_ORDERS_URL:      http://ms-orders:4003
+      MS_TRACEABILITY_URL: http://ms-traceability:4004
+      MS_AGENT_URL:       http://ms-agent:5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ms-production:
+    build: ./services/ms-production
+    ports:
+      - "4001:4001"
+    environment:
+      PORT:         4001
+      NODE_ENV:     production
+      DB_HOST:      postgres
+      DB_PORT:      5432
+      DB_NAME:      aeronexisdb
+      DB_USER:      postgres
+      DB_PASSWORD:  nitro2020
+      MONGO_URI:    mongodb://mongodb:27017/aeronexis_logs
+      JWT_SECRET:   aeronexis_super_secret_key_2026
+      MS_TRACEABILITY_URL: http://ms-traceability:4004
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ms-inventory:
+    build: ./services/ms-inventory
+    ports:
+      - "4002:4002"
+    environment:
+      PORT:         4002
+      NODE_ENV:     production
+      DB_HOST:      postgres
+      DB_PORT:      5432
+      DB_NAME:      aeronexisdb
+      DB_USER:      postgres
+      DB_PASSWORD:  nitro2020
+      MONGO_URI:    mongodb://mongodb:27017/aeronexis_logs
+      JWT_SECRET:   aeronexis_super_secret_key_2026
+      MS_TRACEABILITY_URL: http://ms-traceability:4004
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ms-orders:
+    build: ./services/ms-orders
+    ports:
+      - "4003:4003"
+    environment:
+      PORT:         4003
+      NODE_ENV:     production
+      DB_HOST:      postgres
+      DB_PORT:      5432
+      DB_NAME:      aeronexisdb
+      DB_USER:      postgres
+      DB_PASSWORD:  nitro2020
+      MONGO_URI:    mongodb://mongodb:27017/aeronexis_logs
+      JWT_SECRET:   aeronexis_super_secret_key_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ms-traceability:
+    build: ./services/ms-traceability
+    ports:
+      - "4004:4004"
+    environment:
+      PORT:         4004
+      NODE_ENV:     production
+      DB_HOST:      postgres
+      DB_PORT:      5432
+      DB_NAME:      aeronexisdb
+      DB_USER:      postgres
+      DB_PASSWORD:  nitro2020
+      MONGO_URI:    mongodb://mongodb:27017/aeronexis_logs
+      JWT_SECRET:   aeronexis_super_secret_key_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ms-agent:
+    build: ./services/ms-agent
+    ports:
+      - "5000:5000"
+    environment:
+      GATEWAY_URL:  http://api-gateway:4000
+      OLLAMA_HOST:  http://ollama:11434
+      AGENT_PORT:   5000
+      OLLAMA_MODEL: llama3.1
+    volumes:
+      - chroma_data:/app/.chromadb
+    depends_on:
+      - api-gateway
+      - ollama
+    restart: unless-stopped
+
+  # ── Frontend Apps ─────────────────────────────────────────────────────────
+  app-login:
+    build: ./apps/login
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+  app-operator:
+    build: ./apps/operator
+    ports:
+      - "3001:80"
+    restart: unless-stopped
+
+  app-logistics:
+    build: ./apps/logistics
+    ports:
+      - "3002:80"
+    restart: unless-stopped
+
+  app-sales:
+    build: ./apps/sales
+    ports:
+      - "3003:80"
+    restart: unless-stopped
+
+  app-admin:
+    build: ./apps/admin
+    ports:
+      - "3004:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  mongo_data:
+  ollama_data:
+  chroma_data:

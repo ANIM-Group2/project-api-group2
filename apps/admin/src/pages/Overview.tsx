@@ -4,7 +4,7 @@ import { DollarSign, ShoppingCart, Clock, AlertTriangle, Activity, Layers, Loade
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { productionApi, ordersApi, inventoryApi, type ProductionKPIs, type SalesStats, type Incident, type RawMaterial, formatCurrency } from '@/lib/api'
+import { productionApi, ordersApi, inventoryApi, type ProductionKPIs, type SalesStats, type Incident, type RawMaterial, type MarginByProduct, formatCurrency } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
@@ -20,6 +20,7 @@ export default function Overview() {
   const [prodKPIs,   setProdKPIs]   = useState<ProductionKPIs | null>(null)
   const [salesStats, setSalesStats] = useState<SalesStats | null>(null)
   const [incidents,  setIncidents]  = useState<Incident[]>([])
+  const [margins,    setMargins]    = useState<MarginByProduct[]>([])
   const [lowStock,   setLowStock]   = useState<RawMaterial[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
@@ -61,6 +62,8 @@ export default function Overview() {
     { title: 'Low Stock Items',    value: lowStock.length,                                                            icon: Activity,      color: 'text-orange-400', highlight: lowStock.length > 0 },
     { title: 'Yield Rate',         value: prodKPIs?.yield_rate != null ? `${prodKPIs.yield_rate}%` : '0%',            icon: TrendingUp,    color: 'text-teal-400' },
     { title: 'Completion Rate',    value: prodKPIs?.completion_rate != null ? `${prodKPIs.completion_rate}%` : '0%',  icon: CheckCircle2,  color: 'text-green-400' },
+    { title: 'Delayed Orders',     value: prodKPIs?.delayed_orders ?? 0,                                               icon: Clock,         color: 'text-red-400',   highlight: (prodKPIs?.delayed_orders ?? 0) > 0 },
+    { title: 'Delay Rate',         value: prodKPIs?.delay_rate != null ? `${prodKPIs.delay_rate}%` : '0%',            icon: AlertTriangle, color: 'text-orange-400', highlight: (prodKPIs?.delay_rate ?? 0) > 20 },
   ]
 
   return (
@@ -195,6 +198,38 @@ export default function Overview() {
           </Table>
         </CardContent>
       </Card>
+      {/* Margin by Product */}
+      {margins.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Revenue by Product</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead className="text-right">Unit Price</TableHead>
+                  <TableHead className="text-right">Qty Sold</TableHead>
+                  <TableHead className="text-right">Total Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {margins.map((m, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{m.product_name}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono">{m.product_ref}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(m.unit_price)}</TableCell>
+                    <TableCell className="text-right">{Number(m.total_qty_sold).toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold text-green-400">{formatCurrency(m.total_revenue)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -18,7 +18,33 @@
 // // Executive dashboard — admin only
 // router.get('/dashboard',    authorize('admin'), ctrl.getDashboard);
 
-// module.exports = router;
+// // POST /traceability/reports — save KPI report to MongoDB
+router.post('/reports', authorize('admin'), async (req, res) => {
+  try {
+    const KpiReport = require('../models/kpi-report.model');
+    const report = await KpiReport.create({
+      ...req.body,
+      generated_by: req.user?.userId,
+      generated_at: new Date(),
+    });
+    res.status(201).json({ saved: true, id: report._id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /traceability/reports — list saved reports
+router.get('/reports', authorize('admin'), async (req, res) => {
+  try {
+    const KpiReport = require('../models/kpi-report.model');
+    const reports = await KpiReport.find().sort({ generated_at: -1 }).limit(20);
+    res.json(reports);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;
 
 
 
@@ -50,5 +76,30 @@ router.get('/dashboard',    authorize('admin'), ctrl.getDashboard);
 // Inter-service: receive events from other microservices
 router.post('/event',       authorize('operator', 'logistics', 'sales', 'admin'), ctrl.logEvent);
 
-module.exports = router;
+// POST /traceability/reports — save KPI report to MongoDB
+router.post('/reports', authorize('admin'), async (req, res) => {
+  try {
+    const KpiReport = require('../models/kpi-report.model');
+    const report = await KpiReport.create({
+      ...req.body,
+      generated_by: req.user?.userId,
+      generated_at: new Date(),
+    });
+    res.status(201).json({ saved: true, id: report._id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
+// GET /traceability/reports — list saved reports
+router.get('/reports', authorize('admin'), async (req, res) => {
+  try {
+    const KpiReport = require('../models/kpi-report.model');
+    const reports = await KpiReport.find().sort({ generated_at: -1 }).limit(20);
+    res.json(reports);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;

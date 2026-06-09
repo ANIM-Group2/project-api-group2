@@ -56,7 +56,9 @@ async function updateOrderStatus(id, status) {
 }
 
 async function getKPIs() {
-  const [active, completed, critical, total, batches] = await Promise.all([
+  const { Op } = require('sequelize');
+
+  const [active, completed, critical, total, batches, delayedOrders] = await Promise.all([
     ProductionOrder.count({ where: { status: 'in_progress' } }),
     ProductionOrder.count({ where: { status: 'completed' } }),
     ProductionOrder.count({ where: { priority: 'critical', status: ['planned', 'in_progress'] } }),
@@ -66,6 +68,13 @@ async function getKPIs() {
       include: [{ model: ProductionOrder, as: 'production_order', attributes: ['quantity_ordered'] }],
       raw: true,
       nest: true,
+    }),
+    // Delayed: in_progress orders where planned_end has passed
+    ProductionOrder.count({
+      where: {
+        status: 'in_progress',
+        planned_end: { [Op.lt]: new Date() },
+      }
     }),
   ]);
 
@@ -78,6 +87,8 @@ async function getKPIs() {
   // Completion rate: completed orders / total
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+  const delayRate = active > 0 ? Math.round((delayedOrders / active) * 100) : 0;
+
   return {
     active_orders:    active,
     completed_orders: completed,
@@ -85,6 +96,8 @@ async function getKPIs() {
     total_orders:     total,
     yield_rate:       yieldRate,
     completion_rate:  completionRate,
+    delayed_orders:   delayedOrders,
+    delay_rate:       delayRate,
   };
 }
 

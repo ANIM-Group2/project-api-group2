@@ -64,6 +64,16 @@ export interface ProductionKPIs {
   total_orders: number
   yield_rate: number | null
   completion_rate: number
+  delayed_orders: number
+  delay_rate: number
+}
+
+export interface MarginByProduct {
+  product_name: string
+  product_ref: string
+  unit_price: number
+  total_qty_sold: number
+  total_revenue: number
 }
 
 export interface IncidentStats {
@@ -129,6 +139,7 @@ export const productionApi = {
     return request<ProductionOrder[]>('GET', `/api/production/orders${q}`)
   },
   getKPIs: () => request<ProductionKPIs>('GET', '/api/production/orders/kpis'),
+
   createOrder: (data: CreateProductionOrderPayload) =>
     request<ProductionOrder>('POST', '/api/production/orders', data),
   getBatches: (params?: { status?: string }) => {
@@ -145,6 +156,7 @@ export const productionApi = {
 // ── Orders / Sales ────────────────────────────────────────────
 
 export const ordersApi = {
+  getMarginByProduct: () => request<MarginByProduct[]>('GET', '/api/orders/stats/margin-by-product'),
   getAll: (params?: { status?: string }) => {
     const q = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
     return request<CustomerOrder[]>('GET', `/api/orders/orders${q}`)

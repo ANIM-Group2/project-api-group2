@@ -32,7 +32,7 @@
 # # One agent per session — keyed by token to isolate conversation history
 # _agents: dict[str, ConversationAgent] = {}
 
-# MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+# MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
 
 
 # class ChatRequest(BaseModel):
@@ -119,7 +119,7 @@ app.add_middleware(
 # One agent per session — keyed by token to isolate conversation history
 _agents: dict[str, ConversationAgent] = {}
 
-MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
 
 
 class ChatRequest(BaseModel):

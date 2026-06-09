@@ -146,3 +146,27 @@ module.exports = {
   getAllCustomers, getSalesStats,
   getAllShipments, createShipment, updateShipmentStatus,
 };
+async function getMarginByProduct() {
+  const { sequelize } = require('../config/database.config');
+  const results = await sequelize.query(`
+    SELECT
+      p.name        AS product_name,
+      p.reference   AS product_ref,
+      p.unit_price  AS unit_price,
+      SUM(ol.quantity) AS total_qty_sold,
+      SUM(ol.quantity * ol.unit_price) AS total_revenue
+    FROM order_line ol
+    JOIN product p ON p.product_id = ol.product_id
+    JOIN customer_order co ON co.customer_order_id = ol.customer_order_id
+    WHERE co.status IN ('confirmed', 'in_production', 'shipped', 'delivered')
+    GROUP BY p.product_id, p.name, p.reference, p.unit_price
+    ORDER BY total_revenue DESC
+    LIMIT 10
+  `, { type: sequelize.QueryTypes.SELECT });
+  return results;
+}
+
+module.exports = {
+  ...module.exports,
+  getMarginByProduct,
+};
