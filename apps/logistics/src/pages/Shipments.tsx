@@ -58,7 +58,13 @@ export default function Shipments() {
   async function handleCreate() {
     setFormError(null)
     if (!form.customer_order_id) { setFormError('Please select a customer order'); return }
+    if (!form.shipment_type)     { setFormError('Please select a shipment type'); return }
     if (!form.shipment_date)     { setFormError('Please select a shipment date'); return }
+    const today = new Date().toISOString().split('T')[0]
+    if (form.shipment_date < today) { setFormError('Shipment date cannot be in the past'); return }
+    if (form.tracking_number && form.tracking_number.trim().length < 3) {
+      setFormError('Tracking number must be at least 3 characters'); return
+    }
     try {
       setSubmitting(true)
       await createShipmentApi.create({

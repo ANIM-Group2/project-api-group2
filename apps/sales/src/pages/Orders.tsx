@@ -69,6 +69,11 @@ export default function Orders() {
 
   async function handleCreate() {
     if (!form.customer_id) { setCreateError('Please select a customer'); return }
+    if (!form.expected_delivery) { setCreateError('Expected delivery date is required'); return }
+    const today = new Date().toISOString().split('T')[0]
+    if (form.expected_delivery < today) { setCreateError('Delivery date cannot be in the past'); return }
+    if (form.total_amount && Number(form.total_amount) < 0) { setCreateError('Amount cannot be negative'); return }
+    if (form.total_amount && Number(form.total_amount) > 10000000) { setCreateError('Amount seems too high — please verify'); return }
     setCreating(true); setCreateError(null)
     try {
       const order = await ordersApi.create({
