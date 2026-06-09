@@ -25,19 +25,19 @@ pool.query('SELECT NOW()', (err) => {
 });
 
 // ── RabbitMQ (optional) ───────────────────────────────────────
-let rabbitChannel = null;
-async function connectRabbitMQ() {
-  try {
-    const amqp = require('amqplib');
-    const conn = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
-    rabbitChannel = await conn.createChannel();
-    await rabbitChannel.assertQueue('order.events', { durable: true });
-    console.log('✅ ms-orders: RabbitMQ connected');
-  } catch (err) {
-    console.warn('⚠️  RabbitMQ not available (continuing without messaging):', err.message);
-  }
-}
-connectRabbitMQ();
+// let rabbitChannel = null;
+// async function connectRabbitMQ() {
+//   try {
+//     const amqp = require('amqplib');
+//     const conn = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
+//     rabbitChannel = await conn.createChannel();
+//     await rabbitChannel.assertQueue('order.events', { durable: true });
+//     console.log('✅ ms-orders: RabbitMQ connected');
+//   } catch (err) {
+//     console.warn('⚠️  RabbitMQ not available (continuing without messaging):', err.message);
+//   }
+// }
+// connectRabbitMQ();
 
 app.locals.pool = pool;
 app.locals.publishEvent = function (payload) {

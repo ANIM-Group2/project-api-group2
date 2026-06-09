@@ -11,7 +11,7 @@ async function getAllOrders(filters = {}) {
 
   return Order.findAll({
     where,
-    include: [{ model: Customer, as: 'customer', attributes: ['company_name', 'country'] }],
+    include: [{ model: Customer, as: 'customer', attributes: ['company_name', 'country', 'contact_name', 'email', 'phone'] }],
     order: [['created_at', 'DESC']],
   });
 }

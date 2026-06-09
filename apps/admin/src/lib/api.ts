@@ -111,12 +111,24 @@ export interface SiteInfo {
 
 // ── Production ────────────────────────────────────────────────
 
+export interface CreateProductionOrderPayload {
+  title: string
+  priority: string
+  site_id: number
+  product_id: number
+  quantity_ordered: number
+  planned_start?: string
+  planned_end?: string
+}
+
 export const productionApi = {
   getOrders: (params?: { status?: string; priority?: string }) => {
     const q = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
     return request<ProductionOrder[]>('GET', `/api/production/orders${q}`)
   },
   getKPIs: () => request<ProductionKPIs>('GET', '/api/production/orders/kpis'),
+  createOrder: (data: CreateProductionOrderPayload) =>
+    request<ProductionOrder>('POST', '/api/production/orders', data),
   getBatches: (params?: { status?: string }) => {
     const q = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
     return request<Batch[]>('GET', `/api/production/batches${q}`)

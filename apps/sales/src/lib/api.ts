@@ -85,7 +85,9 @@ export const ordersApi = {
   approve: (id: number) =>
     request<CustomerOrder>('PATCH', `/api/orders/orders/${id}/approve`, {}),
   updateStatus: (id: number, status: string) =>
-    request<CustomerOrder>('PATCH', `/api/orders/orders/${id}/status`, { status }),
+    request<CustomerOrder>('PATCH', `/api/orders/orders/\${id}/status`, { status }),
+  create: (data: { customer_id: number; expected_delivery?: string; total_amount?: number; is_urgent?: boolean }) =>
+    request<CustomerOrder>('POST', '/api/orders/orders', data),
 }
 
 // ── Customers ─────────────────────────────────────────────────

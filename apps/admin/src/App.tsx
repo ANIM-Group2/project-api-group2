@@ -9,6 +9,7 @@ import ProfileSettings from './pages/ProfileSettings'
 import NotFound from './pages/NotFound'
 import AriaHistory from './pages/AriaHistory'
 import Logs from './pages/Logs'
+import Calendar from './pages/Calendar'
 import Unauthorized from './pages/Unauthorized'
 
 const LOGIN_URL = 'http://localhost:3000'
@@ -48,6 +49,7 @@ function App() {
           <Route path="/profile"    element={<ProfileSettings />} />
           <Route path="/aria-history" element={<AriaHistory />} />
           <Route path="/logs"         element={<Logs />} />
+          <Route path="/calendar"     element={<Calendar />} />
           <Route path="*"           element={<NotFound />} />
         </Route>
       </Routes>

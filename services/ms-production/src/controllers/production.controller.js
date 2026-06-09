@@ -1,3 +1,4 @@
+const { Product } = require('../models/production.model');
 const svc = require('../services/production.service');
 
 // GET /production/orders
@@ -29,6 +30,13 @@ const getOrderById = async (req, res) => {
 };
 
 // POST /production/orders
+const getProducts = async (req, res) => {
+  try {
+    const products = await Product.findAll({ order: [['name', 'ASC']] });
+    res.json(products);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
 const createOrder = async (req, res) => {
   try {
     const userId = req.headers['x-user-id'];
@@ -51,4 +59,4 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-module.exports = { getAllOrders, getKPIs, getOrderById, createOrder, updateOrderStatus };
+module.exports = { getAllOrders, getKPIs, getOrderById, createOrder, updateOrderStatus, getProducts };

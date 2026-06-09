@@ -32,17 +32,20 @@ async function getOrderById(id) {
 
 async function createOrder(data) {
   const { product_id, site_id, created_by, order_number, planned_start, planned_end, priority, quantity_ordered, customer_order_id } = data;
-  if (!product_id || !site_id || !created_by || !order_number || !quantity_ordered)
-    throw new Error('Missing required fields: product_id, site_id, created_by, order_number, quantity_ordered');
+  // Auto-generate order_number if not provided
+  const finalOrderNumber = order_number || `OF-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+  if (!product_id || !site_id || !created_by || !quantity_ordered)
+    throw new Error('Missing required fields: product_id, site_id, created_by, quantity_ordered');
 
-  return ProductionOrder.create({
-    product_id, site_id, created_by, order_number,
+  const created = await ProductionOrder.create({
+    product_id, site_id, created_by, order_number: finalOrderNumber,
     planned_start, planned_end,
     priority:         priority || 'normal',
     quantity_ordered,
     customer_order_id: customer_order_id || null,
     status: 'planned',
   });
+  return getOrderById(created.production_order_id);
 }
 
 async function updateOrderStatus(id, status) {

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Search, Eye, CheckCircle, Loader2 } from 'lucide-react'
+import { Search, Eye, CheckCircle, Loader2, Plus, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ordersApi, type CustomerOrder, formatCurrency, formatDate } from '@/lib/api'
+import { ordersApi, customersApi, type CustomerOrder, type Customer, formatCurrency, formatDate } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
@@ -21,24 +22,30 @@ const statusColors: Record<string, string> = {
 }
 
 export default function Orders() {
-  const [orders,   setOrders]   = useState<CustomerOrder[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState<string | null>(null)
-  const [filter,   setFilter]   = useState('all')
-  const [search,   setSearch]   = useState('')
-  const [selected, setSelected] = useState<CustomerOrder | null>(null)
-  const [approving, setApproving] = useState<number | null>(null)
+  const [orders,      setOrders]      = useState<CustomerOrder[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  const [filter,      setFilter]      = useState('all')
+  const [search,      setSearch]      = useState('')
+  const [selected,    setSelected]    = useState<CustomerOrder | null>(null)
+  const [approving,   setApproving]   = useState<number | null>(null)
+  const [showCreate,  setShowCreate]  = useState(false)
+  const [creating,    setCreating]    = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [customers,   setCustomers]   = useState<Customer[]>([])
+  const [form, setForm] = useState({ customer_id: 0, expected_delivery: '', total_amount: '', is_urgent: false })
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    customersApi.getAll().then(setCustomers).catch(() => {})
+    load()
+  }, [])
 
   async function load() {
     try {
       setOrders(await ordersApi.getAll())
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load orders')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function openDetail(id: number) {
@@ -60,6 +67,24 @@ export default function Orders() {
     } finally { setApproving(null) }
   }
 
+  async function handleCreate() {
+    if (!form.customer_id) { setCreateError('Please select a customer'); return }
+    setCreating(true); setCreateError(null)
+    try {
+      const order = await ordersApi.create({
+        customer_id:       form.customer_id,
+        expected_delivery: form.expected_delivery || undefined,
+        total_amount:      form.total_amount ? Number(form.total_amount) : undefined,
+        is_urgent:         form.is_urgent,
+      })
+      setOrders(prev => [order, ...prev])
+      setShowCreate(false)
+      setForm({ customer_id: 0, expected_delivery: '', total_amount: '', is_urgent: false })
+    } catch (e: unknown) {
+      setCreateError(e instanceof Error ? e.message : 'Failed to create order')
+    } finally { setCreating(false) }
+  }
+
   const filtered = orders.filter(o => {
     const matchFilter = filter === 'all' || o.status === filter
     const matchSearch = !search ||
@@ -75,10 +100,73 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
+
+      {/* Create Order Form */}
+      {showCreate && (
+        <Card className="border-primary/30">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">New Customer Order</CardTitle>
+              <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {createError && <div className="mb-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{createError}</div>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label>Customer <span className="text-destructive">*</span></Label>
+                <select value={form.customer_id}
+                  onChange={e => setForm(p => ({ ...p, customer_id: Number(e.target.value) }))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+                  <option value={0}>Select a customer</option>
+                  {customers.map(c => (
+                    <option key={c.customer_id} value={c.customer_id}>{c.company_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Expected Delivery</Label>
+                <Input type="date" value={form.expected_delivery}
+                  onChange={e => setForm(p => ({ ...p, expected_delivery: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Total Amount (€)</Label>
+                <Input type="number" min={0} placeholder="0.00" value={form.total_amount}
+                  onChange={e => setForm(p => ({ ...p, total_amount: e.target.value }))} />
+              </div>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input type="checkbox" checked={form.is_urgent}
+                    onChange={e => setForm(p => ({ ...p, is_urgent: e.target.checked }))}
+                    className="h-4 w-4 rounded border-border" />
+                  Urgent order
+                </label>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+              <Button onClick={handleCreate} disabled={creating}>
+                {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                Create Order
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Orders {pendingCount > 0 && <span className="ml-2 text-sm font-normal text-amber-400">({pendingCount} pending approval)</span>}</CardTitle>
+            <div className="flex items-center gap-3">
+              <CardTitle>
+                Orders {pendingCount > 0 && <span className="ml-2 text-sm font-normal text-amber-400">({pendingCount} pending approval)</span>}
+              </CardTitle>
+              <Button size="sm" onClick={() => setShowCreate(v => !v)}>
+                <Plus className="mr-2 h-4 w-4" /> New Order
+              </Button>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Search orders..." className="w-64 pl-9" value={search} onChange={e => setSearch(e.target.value)} />
@@ -116,7 +204,7 @@ export default function Orders() {
                   <TableCell>{formatDate(o.expected_delivery)}</TableCell>
                   <TableCell className="text-right font-medium text-green-400">{formatCurrency(o.total_amount)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusColors[o.status] ?? ''}>{o.status.replace('_', ' ')}</Badge>
+                    <Badge variant="outline" className={cn(statusColors[o.status] ?? '')}>{o.status.replace('_', ' ')}</Badge>
                   </TableCell>
                   <TableCell>{o.is_urgent ? <span className="text-xs font-medium text-red-400">URGENT</span> : '—'}</TableCell>
                   <TableCell className="text-right">
@@ -146,7 +234,7 @@ export default function Orders() {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <span className="font-mono">#{selected?.customer_order_id}</span>
-              {selected && <Badge variant="outline" className={statusColors[selected.status] ?? ''}>{selected.status.replace('_', ' ')}</Badge>}
+              {selected && <Badge variant="outline" className={cn(statusColors[selected.status] ?? '')}>{selected.status.replace('_', ' ')}</Badge>}
             </SheetTitle>
           </SheetHeader>
           {selected && (

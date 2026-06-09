@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Loader2, Mail, Phone, User } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -67,9 +67,25 @@ export default function Approvals() {
             </div>
           </div>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Customer</p>
-          <p className="text-sm">{order.customer?.country ?? '—'}</p>
+        <div className="space-y-2 border-t border-border/50 pt-3">
+          {order.customer?.contact_name && (
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-foreground">{order.customer.contact_name}</span>
+            </div>
+          )}
+          {order.customer?.email && (
+            <div className="flex items-center gap-2 text-sm">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground">{order.customer.email}</span>
+            </div>
+          )}
+          {order.customer?.phone && (
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground">{order.customer.phone}</span>
+            </div>
+          )}
         </div>
         {showApprove && order.status === 'draft' && (
           <div className="flex gap-2 pt-2">

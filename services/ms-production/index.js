@@ -18,6 +18,7 @@ app.get('/health', (req, res) => res.json({ status: 'UP', service: 'ms-productio
 app.use(authenticate);
 
 app.use('/production/orders',    require('./src/routes/production.route'));
+app.use('/production/products',  require('./src/routes/products.route'));
 app.use('/production/batches',   require('./src/routes/batch.route'));
 app.use('/production/incidents', require('./src/routes/incident.route'));
 
