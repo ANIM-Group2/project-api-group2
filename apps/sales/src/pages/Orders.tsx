@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Eye, CheckCircle, Loader2, Plus, X } from 'lucide-react'
+import { Search, Eye, CheckCircle, Loader2, Plus, X, XCircle, RotateCcw, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +29,8 @@ export default function Orders() {
   const [search,      setSearch]      = useState('')
   const [selected,    setSelected]    = useState<CustomerOrder | null>(null)
   const [approving,   setApproving]   = useState<number | null>(null)
+  const [cancelling,  setCancelling]  = useState<number | null>(null)
+  const [deleting,    setDeleting]    = useState<number | null>(null)
   const [showCreate,  setShowCreate]  = useState(false)
   const [creating,    setCreating]    = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -65,6 +67,44 @@ export default function Orders() {
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Approval failed')
     } finally { setApproving(null) }
+  }
+
+  async function handleCancel(id: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Cancel this order?')) return
+    try {
+      setCancelling(id)
+      await ordersApi.cancel(id)
+      await load()
+      if (selected?.customer_order_id === id) setSelected(null)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Cancel failed')
+    } finally { setCancelling(null) }
+  }
+
+  async function handleUnapprove(id: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Move this order back to draft?')) return
+    try {
+      await ordersApi.unapprove(id)
+      await load()
+      if (selected?.customer_order_id === id) setSelected(null)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Unapprove failed')
+    }
+  }
+
+  async function handleDelete(id: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Permanently delete this order? This cannot be undone.')) return
+    try {
+      setDeleting(id)
+      await ordersApi.delete(id)
+      setOrders(prev => prev.filter(o => o.customer_order_id !== id))
+      if (selected?.customer_order_id === id) setSelected(null)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Delete failed')
+    } finally { setDeleting(null) }
   }
 
   async function handleCreate() {
@@ -219,6 +259,31 @@ export default function Orders() {
                           disabled={approving === o.customer_order_id}
                           onClick={e => handleApprove(o.customer_order_id, e)}>
                           {approving === o.customer_order_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><CheckCircle className="mr-1 h-3 w-3" />Approve</>}
+                        </Button>
+                      )}
+                      {o.status === 'confirmed' && (
+                        <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                          onClick={e => handleUnapprove(o.customer_order_id, e)}
+                          title="Move back to draft">
+                          <RotateCcw className="mr-1 h-3 w-3" /> Unapprove
+                        </Button>
+                      )}
+                      {!['shipped', 'delivered', 'cancelled'].includes(o.status) && (
+                        <Button size="sm" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                          disabled={cancelling === o.customer_order_id}
+                          onClick={e => handleCancel(o.customer_order_id, e)}
+                          title="Cancel order">
+                          {cancelling === o.customer_order_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="mr-1 h-3 w-3" />}
+                          Cancel
+                        </Button>
+                      )}
+                      {['draft', 'cancelled'].includes(o.status) && (
+                        <Button size="sm" variant="outline" className="border-red-800/40 text-red-600 hover:bg-red-900/10"
+                          disabled={deleting === o.customer_order_id}
+                          onClick={e => handleDelete(o.customer_order_id, e)}
+                          title="Delete permanently">
+                          {deleting === o.customer_order_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+                          Delete
                         </Button>
                       )}
                       <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); openDetail(o.customer_order_id) }}>

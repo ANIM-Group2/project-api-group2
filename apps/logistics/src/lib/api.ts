@@ -161,3 +161,15 @@ export const createShipmentApi = {
     shipment_date?: string
   }) => request<Shipment>('POST', '/api/orders/shipments', data),
 }
+export interface ProductionOrder {
+  production_order_id: number
+  order_number: string
+  status: string
+  quantity_ordered: number
+  site?: { name: string }
+  product?: { name: string }
+}
+
+export const productionOrdersApi = {
+  getAll: () => request<ProductionOrder[]>('GET', '/api/production/orders'),
+}

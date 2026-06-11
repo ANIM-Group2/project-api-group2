@@ -9,5 +9,8 @@ router.get('/:id',             authorize('sales', 'logistics', 'admin'), ctrl.ge
 router.post('/',               authorize('sales', 'admin'),               ctrl.createOrder);
 router.patch('/:id/approve',   authorize('sales', 'admin'),               ctrl.approveOrder);
 router.patch('/:id/status',    authorize('admin'),                        ctrl.updateOrderStatus);
+router.patch('/:id/cancel',    authorize('sales', 'admin'),               ctrl.cancelOrder);
+router.patch('/:id/unapprove', authorize('sales', 'admin'),               ctrl.unapproveOrder);
+router.delete('/:id',          authorize('sales', 'admin'),               ctrl.deleteOrder);
 
 module.exports = router;

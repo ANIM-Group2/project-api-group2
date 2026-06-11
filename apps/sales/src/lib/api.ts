@@ -84,10 +84,16 @@ export const ordersApi = {
     request<CustomerOrder>('GET', `/api/orders/orders/${id}`),
   approve: (id: number) =>
     request<CustomerOrder>('PATCH', `/api/orders/orders/${id}/approve`, {}),
-  updateStatus: (id: number, status: string) =>
+  updateStatus: (_id: number, status: string) =>
     request<CustomerOrder>('PATCH', `/api/orders/orders/\${id}/status`, { status }),
   create: (data: { customer_id: number; expected_delivery?: string; total_amount?: number; is_urgent?: boolean }) =>
     request<CustomerOrder>('POST', '/api/orders/orders', data),
+  cancel: (id: number) =>
+    request<CustomerOrder>('PATCH', `/api/orders/orders/${id}/cancel`, {}),
+  unapprove: (id: number) =>
+    request<CustomerOrder>('PATCH', `/api/orders/orders/${id}/unapprove`, {}),
+  delete: (id: number) =>
+    request<{ deleted: boolean }>('DELETE', `/api/orders/orders/${id}`),
 }
 
 // ── Customers ─────────────────────────────────────────────────

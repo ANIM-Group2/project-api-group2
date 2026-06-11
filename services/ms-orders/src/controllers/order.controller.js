@@ -1,3 +1,4 @@
+const { CustomerOrder } = require('../models/order.model');
 const svc = require('../services/order.service');
 
 const getOrders = async (req, res) => {
@@ -72,8 +73,46 @@ const updateShipment = async (req, res) => {
   }
 };
 
+
+const cancelOrder = async (req, res) => {
+  try {
+    const { CustomerOrder } = require('../models/order.model');
+    const order = await CustomerOrder.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (['shipped', 'delivered'].includes(order.status))
+      return res.status(409).json({ error: 'Cannot cancel a shipped or delivered order' });
+    await order.update({ status: 'cancelled' });
+    res.json(order);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+const unapproveOrder = async (req, res) => {
+  try {
+    const { CustomerOrder } = require('../models/order.model');
+    const order = await CustomerOrder.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status !== 'confirmed')
+      return res.status(409).json({ error: 'Only confirmed orders can be moved back to draft' });
+    await order.update({ status: 'draft', validated_by: null });
+    res.json(order);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+const deleteOrder = async (req, res) => {
+  try {
+    const { CustomerOrder } = require('../models/order.model');
+    const order = await CustomerOrder.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!['draft', 'cancelled'].includes(order.status))
+      return res.status(409).json({ error: 'Only draft or cancelled orders can be deleted' });
+    await order.destroy();
+    res.json({ deleted: true, id: Number(req.params.id) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
 module.exports = {
   getOrders, getOrder, createOrder, approveOrder, updateOrderStatus,
+  cancelOrder, unapproveOrder, deleteOrder,
   getCustomers, getStats,
   getShipments, createShipment, updateShipment,
 };

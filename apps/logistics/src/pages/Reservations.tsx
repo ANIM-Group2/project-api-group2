@@ -263,7 +263,7 @@ import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { reservationsApi, stockApi, type MaterialReservation, type RawMaterial } from '@/lib/api'
+import { reservationsApi, stockApi, productionOrdersApi, type MaterialReservation, type RawMaterial, type ProductionOrder } from '@/lib/api'
 
 export default function Reservations() {
   const [reservations, setReservations] = useState<MaterialReservation[]>([])
@@ -278,14 +278,16 @@ export default function Reservations() {
   const [matId,  setMatId]  = useState('')
   const [orderId,setOrderId]= useState('')
   const [qty,    setQty]    = useState('')
+  const [prodOrders, setProdOrders] = useState<ProductionOrder[]>([])
 
   useEffect(() => { load() }, [])
 
   async function load() {
     try {
-      const [res, mats] = await Promise.all([reservationsApi.getAll(), stockApi.getAll()])
+      const [res, mats, prods] = await Promise.all([reservationsApi.getAll(), stockApi.getAll(), productionOrdersApi.getAll()])
       setReservations(res)
       setMaterials(mats)
+      setProdOrders(prods ?? [])
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
@@ -375,7 +377,9 @@ export default function Reservations() {
                   <TableCell className="font-mono text-sm">
                     {r.material?.reference ?? `#${r.material_id}`}
                   </TableCell>
-                  <TableCell className="font-mono text-sm">#{r.production_order_id}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {prodOrders.find(p => p.production_order_id === r.production_order_id)?.order_number ?? `#${r.production_order_id}`}
+                  </TableCell>
                   <TableCell className="text-right">
                     {r.quantity_reserved.toLocaleString()} {r.material?.unit ?? ''}
                   </TableCell>
@@ -435,8 +439,17 @@ export default function Reservations() {
               )}
             </div>
             <div className="grid gap-2">
-              <Label>Production Order ID</Label>
-              <Input type="number" value={orderId} onChange={e => setOrderId(e.target.value)} placeholder="e.g. 45" />
+              <Label>Production Order</Label>
+              <Select value={orderId} onValueChange={setOrderId}>
+                <SelectTrigger><SelectValue placeholder="Select production order" /></SelectTrigger>
+                <SelectContent>
+                  {prodOrders.filter(p => p.status !== 'completed' && p.status !== 'cancelled').map(p => (
+                    <SelectItem key={p.production_order_id} value={String(p.production_order_id)}>
+                      {p.order_number} — {p.product?.name ?? 'Unknown'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>Quantity {selectedMat ? `(${selectedMat.unit})` : ''}</Label>

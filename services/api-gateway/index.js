@@ -35,7 +35,7 @@
 // // ── Role → allowed service prefixes ──────────────────────────
 // const ROLE_ALLOWED = {
 //   operator:  ['production', 'traceability'],
-//   logistics: ['inventory', 'traceability', 'orders'],
+//   logistics: ['inventory', 'traceability', 'orders', 'production'],
 //   sales:     ['orders', 'traceability'],
 //   admin:     ['production', 'inventory', 'orders', 'traceability'],
 // };
@@ -259,7 +259,7 @@ const SERVICES = {
 // ── Role → allowed service prefixes ──────────────────────────
 const ROLE_ALLOWED = {
   operator:  ['production', 'traceability'],
-  logistics: ['inventory', 'traceability', 'orders'],
+  logistics: ['inventory', 'traceability', 'orders', 'production'],
   sales:     ['orders', 'traceability'],
   admin:     ['production', 'inventory', 'orders', 'traceability', 'agent'],
 };
